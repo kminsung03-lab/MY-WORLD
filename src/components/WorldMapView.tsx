@@ -12,6 +12,8 @@ import {
   NATIONS,
   NATION_TO_NEIGHBOR_MAP,
   PROVINCES,
+  STRATEGIC_TARGET_COORDINATES,
+  findStrategicTargetProvince,
   isPointInPolygon,
 } from '../constants/worldData'
 import type { RealmHandle } from '../hooks/useRealmState'
@@ -59,6 +61,48 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
   )
   const activeTrades = monthlyProjection.activeTrades
   const annexedCount = realmState.neighbors.filter((neighbor) => neighbor.annexed).length
+  const totalDominionCount = 1 + annexedCount
+
+  const strategicProvinces = useMemo(() => {
+    const map = new Map<string, { neighbor: typeof realmState.neighbors[number]; province: Province }>()
+    realmState.neighbors.forEach((neighbor) => {
+      const coord = STRATEGIC_TARGET_COORDINATES[neighbor.id]
+      if (coord) {
+        const province = findStrategicTargetProvince(coord, PROVINCES)
+        if (province) {
+          map.set(province.id, { neighbor, province })
+        }
+      }
+    })
+    return map
+  }, [realmState.neighbors])
+
+  const annexedProvinces = useMemo(() => {
+    const list: { neighbor: typeof realmState.neighbors[number]; province: Province }[] = []
+    for (const item of strategicProvinces.values()) {
+      if (item.neighbor.annexed) {
+        list.push(item)
+      }
+    }
+    return list
+  }, [strategicProvinces])
+
+  const annexedProvinceIds = useMemo(() => {
+    return new Set(annexedProvinces.map((item) => item.province.id))
+  }, [annexedProvinces])
+
+  const activeTradeRoutes = useMemo(() => {
+    const routes: { neighbor: typeof realmState.neighbors[number]; targetProvince: Province }[] = []
+    for (const item of strategicProvinces.values()) {
+      if (item.neighbor.tradeActive) {
+        routes.push({ neighbor: item.neighbor, targetProvince: item.province })
+      }
+    }
+    return routes
+  }, [strategicProvinces])
+
+  const selectedAnnexedInfo = strategicProvinces.get(selectedProvince.id)
+  const isSelectedAnnexed = selectedAnnexedInfo?.neighbor.annexed === true
 
   const mappedNeighborId = NATION_TO_NEIGHBOR_MAP[selectedNation.id]
   const matchedNeighbor = mappedNeighborId
@@ -197,14 +241,24 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       PROVINCES.filter((province) => province.landmassId === land.id).forEach((province) => {
         ctx.beginPath()
         tracePolygon(ctx, province.vertices)
-        ctx.fillStyle = province.color
+        const isAnnexed = annexedProvinceIds.has(province.id)
+        if (isAnnexed) {
+          ctx.fillStyle = '#0f766e' // 에르덴 통치색 (짙은 청록)
+        } else {
+          ctx.fillStyle = province.color
+        }
         ctx.fill()
         if (hoveredProvince?.id === province.id) {
           ctx.fillStyle = 'rgba(255,255,255,.26)'
           ctx.fill()
         }
-        ctx.strokeStyle = 'rgba(32, 43, 47, .55)'
-        ctx.lineWidth = 1.15 / zoom
+        if (isAnnexed) {
+          ctx.strokeStyle = '#f59e0b'
+          ctx.lineWidth = 2.4 / zoom
+        } else {
+          ctx.strokeStyle = 'rgba(32, 43, 47, .55)'
+          ctx.lineWidth = 1.15 / zoom
+        }
         ctx.stroke()
       })
 
@@ -258,6 +312,107 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       ctx.beginPath(); ctx.moveTo(x - 7, y - 7); ctx.lineTo(x, y - 18); ctx.lineTo(x + 6, y - 8); ctx.stroke()
     })
 
+    // Active Trade Routes (곡선 점선 교역로 및 중간 교역 아이콘)
+    activeTradeRoutes.forEach(({ neighbor, targetProvince }) => {
+      const p0 = playerFief.center
+      const p1 = targetProvince.center
+      const dx = p1[0] - p0[0]
+      const dy = p1[1] - p0[1]
+      const dist = Math.hypot(dx, dy) || 1
+      const nx = -dy / dist
+      const ny = dx / dist
+      const curveOffset = Math.min(50, Math.max(25, dist * 0.12))
+      const midX = (p0[0] + p1[0]) / 2 + nx * curveOffset
+      const midY = (p0[1] + p1[1]) / 2 + ny * curveOffset
+
+      ctx.save()
+
+      // Soft ambient glow under the trade route
+      ctx.beginPath()
+      ctx.moveTo(p0[0], p0[1])
+      ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.28)'
+      ctx.lineWidth = 5.5 / zoom
+      ctx.stroke()
+
+      // Dashed golden active trade line
+      ctx.beginPath()
+      ctx.moveTo(p0[0], p0[1])
+      ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
+      ctx.setLineDash([8 / zoom, 5 / zoom])
+      ctx.strokeStyle = '#f59e0b'
+      ctx.lineWidth = 2.4 / zoom
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Trade Icon Badge at midpoint
+      const iconX = 0.25 * p0[0] + 0.5 * midX + 0.25 * p1[0]
+      const iconY = 0.25 * p0[1] + 0.5 * midY + 0.25 * p1[1]
+
+      const badgeRadius = Math.max(9, Math.min(18, 12 / zoom))
+      ctx.beginPath()
+      ctx.arc(iconX, iconY, badgeRadius, 0, Math.PI * 2)
+      ctx.fillStyle = '#0f172a'
+      ctx.fill()
+      ctx.strokeStyle = '#fbbf24'
+      ctx.lineWidth = 1.8 / zoom
+      ctx.stroke()
+
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = `${Math.max(10, Math.min(18, 13 / zoom))}px ${FONT_STACK}`
+      ctx.fillText('⛵', iconX, iconY + 1 / zoom)
+
+      if (zoom >= 0.52) {
+        ctx.font = `700 ${Math.max(9, Math.min(14, 10 / zoom))}px ${FONT_STACK}`
+        ctx.fillStyle = '#fde68a'
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)'
+        ctx.lineWidth = 2.5 / zoom
+        const label = `교역: ${neighbor.name}`
+        ctx.strokeText(label, iconX, iconY + badgeRadius + 8 / zoom)
+        ctx.fillText(label, iconX, iconY + badgeRadius + 8 / zoom)
+      }
+
+      ctx.restore()
+    })
+
+    // Annexed Dominion Markers (에르덴 통치령 금색 국경 강조 및 깃발/병합 표시)
+    annexedProvinces.forEach(({ province }) => {
+      ctx.save()
+      const land = LANDMASSES.find((item) => item.id === province.landmassId)
+      if (land) {
+        ctx.beginPath()
+        tracePolygon(ctx, land.points)
+        ctx.clip()
+      }
+
+      ctx.beginPath()
+      tracePolygon(ctx, province.vertices)
+      ctx.strokeStyle = '#fbbf24'
+      ctx.lineWidth = 3.6 / zoom
+      ctx.shadowColor = '#d97706'
+      ctx.shadowBlur = 10 / zoom
+      ctx.stroke()
+      ctx.shadowBlur = 0
+
+      const [cx, cy] = province.center
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      ctx.font = `${Math.max(14, Math.min(26, 18 / zoom))}px ${FONT_STACK}`
+      ctx.fillText('🚩', cx, cy - 12 / zoom)
+
+      ctx.font = `800 ${Math.max(10, Math.min(15, 11 / zoom))}px ${FONT_STACK}`
+      ctx.fillStyle = '#fef08a'
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.95)'
+      ctx.lineWidth = 3 / zoom
+      const text = `에르덴 병합령 (${province.name})`
+      ctx.strokeText(text, cx, cy + 9 / zoom)
+      ctx.fillText(text, cx, cy + 9 / zoom)
+
+      ctx.restore()
+    })
+
     // Realm labels at every zoom level.
     Object.entries(NATION_LABEL_POINTS).forEach(([nationId, point]) => {
       const nation = NATIONS[nationId]
@@ -287,7 +442,8 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
         ctx.fillStyle = '#111827'
         ctx.strokeStyle = 'rgba(255,255,255,.7)'
         ctx.lineWidth = province.isPlayerFief ? 3.6 : 2.6
-        const label = province.isPlayerFief ? '★ MY-WORLD' : province.name
+        const isAnnexed = annexedProvinceIds.has(province.id)
+        const label = province.isPlayerFief ? '★ MY-WORLD' : isAnnexed ? `🚩 ${province.name}` : province.name
         ctx.strokeText(label, province.center[0], province.center[1] - 7)
         ctx.fillText(label, province.center[0], province.center[1] - 7)
         ctx.font = `700 ${province.isPlayerFief ? 13 : 10}px ${FONT_STACK}`
@@ -303,15 +459,16 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       const land = LANDMASSES.find((item) => item.id === province.landmassId)
       if (land) { ctx.beginPath(); tracePolygon(ctx, land.points); ctx.clip() }
       ctx.beginPath(); tracePolygon(ctx, province.vertices)
-      ctx.strokeStyle = province.isPlayerFief ? '#fef08a' : '#ffffff'
+      const isAnnexed = annexedProvinceIds.has(province.id)
+      ctx.strokeStyle = province.isPlayerFief ? '#fef08a' : isAnnexed ? '#fbbf24' : '#ffffff'
       ctx.lineWidth = (province.isPlayerFief ? 5 : 4) / zoom
-      ctx.shadowColor = province.isPlayerFief ? '#f59e0b' : '#38bdf8'
+      ctx.shadowColor = province.isPlayerFief ? '#f59e0b' : isAnnexed ? '#d97706' : '#38bdf8'
       ctx.shadowBlur = 12 / zoom
       ctx.stroke(); ctx.restore()
     })
 
     ctx.restore()
-  }, [canvasSize, gameState, hoveredProvince, pan, playerFief, selectedProvince, zoom])
+  }, [canvasSize, gameState, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds])
 
   const focusNation = (nation: Nation) => {
     const point = NATION_LABEL_POINTS[nation.id]
@@ -327,7 +484,9 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
           <span className="map-title-icon">🗺️</span>
           <div>
             <h2 className="map-title">{CONTINENT_NAME}</h2>
-            <span className="map-subtitle">11개 세력 · {PROVINCES.length}개 영지 · 미지의 바다에 둘러싸인 판타지 대륙</span>
+            <span className="map-subtitle">
+              11개 세력 · {PROVINCES.length}개 영지 · <strong className="dominion-counter">🏰 에르덴 통치령 {totalDominionCount}곳 (본령 1 + 병합 {annexedCount})</strong>
+            </span>
           </div>
         </div>
         <div className="map-controls">
@@ -357,22 +516,50 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
           <div className="map-overlay-hint">휠 확대 · 드래그 이동 · 영지 클릭</div>
           {hoveredProvince && (
             <div className="map-hover-chip">
-              <b>{NATIONS[hoveredProvince.nationId].emblem} {hoveredProvince.name}</b>
-              <span>{hoveredProvince.troops} · {NATIONS[hoveredProvince.nationId].name}</span>
+              <b>{annexedProvinceIds.has(hoveredProvince.id) ? '🚩 [병합령]' : NATIONS[hoveredProvince.nationId].emblem} {hoveredProvince.name}</b>
+              <span>{hoveredProvince.troops} · {annexedProvinceIds.has(hoveredProvince.id) ? '에르덴 통치령' : NATIONS[hoveredProvince.nationId].name}</span>
             </div>
           )}
         </div>
 
         <aside className="map-inspector-panel">
-          <div className="atlas-kicker">선택한 영지</div>
-          <div className="fief-detail-card" style={{ borderColor: selectedNation.borderHighlightColor }}>
+          <div className="atlas-kicker">
+            {selectedProvince.isPlayerFief ? '내 통치령 (본령)' : isSelectedAnnexed ? '에르덴 직속 통치령 (병합령)' : '선택한 영지'}
+          </div>
+          <div className="fief-detail-card" style={{ borderColor: isSelectedAnnexed ? '#fbbf24' : selectedNation.borderHighlightColor }}>
             <div className="inspector-header">
-              <span className="inspector-badge">{selectedProvince.isPlayerFief ? '★ 내 통치령' : selectedNation.typeLabel}</span>
-              <span className="nation-tag" style={{ color: selectedNation.borderHighlightColor }}>{selectedNation.emblem} {selectedNation.name}</span>
+              <span className={`inspector-badge ${isSelectedAnnexed ? 'badge-annexed' : ''}`}>
+                {selectedProvince.isPlayerFief ? '★ 내 통치령' : isSelectedAnnexed ? '🚩 에르덴 병합령' : selectedNation.typeLabel}
+              </span>
+              <span className="nation-tag" style={{ color: isSelectedAnnexed ? '#fbbf24' : selectedNation.borderHighlightColor }}>
+                {isSelectedAnnexed ? '🚩 에르덴 통치령' : `${selectedNation.emblem} ${selectedNation.name}`}
+              </span>
             </div>
-            <h3 className="fief-title">{selectedProvince.name}</h3>
-            <div className="ruler-line"><strong>{selectedProvince.rulerName}</strong><span>주둔 {selectedProvince.troops}</span></div>
-            <p className="fief-description">{selectedProvince.description}</p>
+            <h3 className="fief-title">
+              {isSelectedAnnexed ? `[에르덴 병합령] ${selectedProvince.name}` : selectedProvince.name}
+            </h3>
+
+            {isSelectedAnnexed && selectedAnnexedInfo && (
+              <div className="annexed-origin-card">
+                <span className="origin-label">원 소속 세력 및 병합 출처</span>
+                <div className="origin-val">
+                  {selectedAnnexedInfo.neighbor.icon} <strong>{selectedAnnexedInfo.neighbor.name}</strong> ({selectedAnnexedInfo.neighbor.title})
+                </div>
+                <p className="origin-desc">
+                  에르덴 변경백령의 원정으로 직속 통치령에 편입되었습니다. 조세와 인력 기여가 본령으로 귀속됩니다.
+                </p>
+              </div>
+            )}
+
+            <div className="ruler-line">
+              <strong>{isSelectedAnnexed ? '에르덴 변경백 직속 통치' : selectedProvince.rulerName}</strong>
+              <span>주둔 {selectedProvince.troops} {isSelectedAnnexed ? '(에르덴 수비대)' : ''}</span>
+            </div>
+            <p className="fief-description">
+              {isSelectedAnnexed && selectedAnnexedInfo
+                ? `${selectedProvince.description} (에르덴 변경백령의 원정으로 ${selectedAnnexedInfo.neighbor.name}에서 병합된 직속 통치령입니다.)`
+                : selectedProvince.description}
+            </p>
             <div className="fief-ratings">
               <div className="rating-row"><span>방어</span><div className="rating-bar"><div className="rating-bar-fill def" style={{ width: `${selectedProvince.defense}%` }} /></div><b>{selectedProvince.defense}</b></div>
               <div className="rating-row"><span>경제</span><div className="rating-bar"><div className="rating-bar-fill eco" style={{ width: `${selectedProvince.economy}%` }} /></div><b>{selectedProvince.economy}</b></div>
@@ -386,6 +573,13 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                 </div>
 
                 <div className="player-live-strategy-grid">
+                  <div className="strategy-stat-full highlight-dominion">
+                    <span className="stat-label">현재 통치 프로빈스 수</span>
+                    <strong className="stat-val text-cyan">
+                      🏰 {totalDominionCount}개 영지 (본령 1 + 병합 {annexedCount}곳)
+                    </strong>
+                  </div>
+
                   <div className="strategy-stat-full">
                     <span className="stat-label">선택 노선</span>
                     <strong className="stat-val doctrine-badge">
@@ -438,72 +632,127 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
             )}
           </div>
 
-          <div className="nation-detail-card">
-            <div className="inspector-header">
-              <span className="atlas-kicker">소속 세력</span>
-              <span className="nation-relation-badge">{selectedNation.relationLabel}</span>
-            </div>
-            <h3 className="nation-title" style={{ color: selectedNation.borderHighlightColor }}>{selectedNation.emblem} {selectedNation.name}</h3>
-            <p className="nation-description">{selectedNation.description}</p>
-            <div className="nation-meta-list">
-              <div className="meta-item"><span className="meta-k">수도</span><span className="meta-v">{selectedNation.capital}</span></div>
-              <div className="meta-item"><span className="meta-k">통치자</span><span className="meta-v">{selectedNation.ruler}</span></div>
-              <div className="meta-item"><span className="meta-k">총 병력</span><span className="meta-v">{selectedNation.totalTroops}</span></div>
-              <div className="meta-item"><span className="meta-k">군사</span><span className="meta-v">{selectedNation.militaryPower}</span></div>
-              <div className="meta-item"><span className="meta-k">경제</span><span className="meta-v">{selectedNation.economyPower}</span></div>
-            </div>
-
-            {matchedNeighbor ? (
-              <div className="strategic-neighbor-box">
-                <div className="strategic-neighbor-header">
-                  <span className="strategic-subkicker">변경백령 외교 정보</span>
-                  <span className={`neighbor-status-pill ${matchedNeighbor.annexed ? 'annexed' : matchedNeighbor.claim ? 'claim' : matchedNeighbor.tradeActive ? 'trade' : ''}`}>
-                    {matchedNeighbor.annexed ? '🚩 병합됨' : matchedNeighbor.claim ? '⚔️ 명분 보유' : matchedNeighbor.tradeActive ? '⛵ 교역 중' : matchedNeighbor.attitude}
+          {isSelectedAnnexed && selectedAnnexedInfo ? (
+            <div className="nation-detail-card annexed-political-card">
+              <div className="inspector-header">
+                <span className="atlas-kicker">통치령 정치 현황</span>
+                <span className="neighbor-status-pill annexed">🚩 직속 병합령</span>
+              </div>
+              <h3 className="nation-title text-gold">
+                🚩 에르덴 직속 통치령
+              </h3>
+              <p className="nation-description">
+                군사 원정 및 외교적 결단으로 에르덴 변경백령에 복속된 직할 영지입니다.
+                현지 행정과 방어선이 변경백 직속 수비대와 관료에 의해 통제되며, 생산되는 조세와 인력이 에르덴 본령으로 귀속됩니다.
+              </p>
+              <div className="nation-meta-list">
+                <div className="meta-item">
+                  <span className="meta-k">현재 통치자</span>
+                  <span className="meta-v">에르덴 변경백령 (직속 통치)</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">이전 지배세력</span>
+                  <span className="meta-v">
+                    {selectedAnnexedInfo.neighbor.icon} {selectedAnnexedInfo.neighbor.name} <small>({selectedAnnexedInfo.neighbor.title})</small>
                   </span>
                 </div>
-                <div className="strategic-neighbor-name">
-                  {matchedNeighbor.icon} {matchedNeighbor.name} <small>({matchedNeighbor.title})</small>
+                <div className="meta-item">
+                  <span className="meta-k">현재 정치 상태</span>
+                  <span className="meta-v text-good">직속 병합령 (점령 및 완전 귀속)</span>
                 </div>
-                <div className="strategic-neighbor-details">
-                  <div className="neighbor-row">
-                    <span className="neighbor-k">현재 관계</span>
-                    <span className={`neighbor-v ${matchedNeighbor.relation >= 0 ? 'text-good' : 'text-danger'}`}>
-                      {matchedNeighbor.relation >= 0 ? `+${matchedNeighbor.relation}` : matchedNeighbor.relation} ({matchedNeighbor.attitude})
-                    </span>
-                  </div>
-                  <div className="neighbor-row">
-                    <span className="neighbor-k">교역 상태</span>
-                    <span className="neighbor-v">
-                      {matchedNeighbor.tradeActive ? '✅ 교역로 개설됨 (월간 수입 기여)' : '❌ 미체결'}
-                    </span>
-                  </div>
-                  <div className="neighbor-row">
-                    <span className="neighbor-k">명분 상태</span>
-                    <span className="neighbor-v">
-                      {matchedNeighbor.claim ? '⚔️ 영유권 명분 확보 (출병 가능)' : '⚪ 명분 없음'}
-                    </span>
-                  </div>
-                  <div className="neighbor-row">
-                    <span className="neighbor-k">병합 상태</span>
-                    <span className="neighbor-v">
-                      {matchedNeighbor.annexed ? '🚩 통치령에 병합됨 (점령 완료)' : '🛡️ 독립 세력'}
-                    </span>
-                  </div>
+                <div className="meta-item">
+                  <span className="meta-k">조세·인력 귀속</span>
+                  <span className="meta-v text-amber">에르덴 본령 귀속</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">지도상 권역</span>
+                  <span className="meta-v text-muted">
+                    {selectedNation.emblem} {selectedNation.name} ({selectedNation.typeLabel})
+                  </span>
                 </div>
               </div>
-            ) : (
-              <div className="strategic-neighbor-remote">
-                <div className="remote-status-title">🌐 현재 직접 이해관계 없음</div>
-                <p className="remote-status-desc">에르덴 변경백령과 직접 국경을 접하지 않거나 상설 외교 사절이 개설되지 않은 대륙 세력입니다.</p>
+            </div>
+          ) : (
+            <div className="nation-detail-card">
+              <div className="inspector-header">
+                <span className="atlas-kicker">소속 세력</span>
+                <span className="nation-relation-badge">{selectedNation.relationLabel}</span>
               </div>
-            )}
-          </div>
+              <h3 className="nation-title" style={{ color: selectedNation.borderHighlightColor }}>{selectedNation.emblem} {selectedNation.name}</h3>
+              <p className="nation-description">{selectedNation.description}</p>
+              <div className="nation-meta-list">
+                <div className="meta-item"><span className="meta-k">수도</span><span className="meta-v">{selectedNation.capital}</span></div>
+                <div className="meta-item"><span className="meta-k">통치자</span><span className="meta-v">{selectedNation.ruler}</span></div>
+                <div className="meta-item"><span className="meta-k">총 병력</span><span className="meta-v">{selectedNation.totalTroops}</span></div>
+                <div className="meta-item"><span className="meta-k">군사</span><span className="meta-v">{selectedNation.militaryPower}</span></div>
+                <div className="meta-item"><span className="meta-k">경제</span><span className="meta-v">{selectedNation.economyPower}</span></div>
+              </div>
+
+              {matchedNeighbor ? (
+                <div className="strategic-neighbor-box">
+                  <div className="strategic-neighbor-header">
+                    <span className="strategic-subkicker">변경백령 외교 정보</span>
+                    <span className={`neighbor-status-pill ${matchedNeighbor.annexed ? 'annexed' : matchedNeighbor.claim ? 'claim' : matchedNeighbor.tradeActive ? 'trade' : ''}`}>
+                      {matchedNeighbor.annexed ? '🚩 병합됨' : matchedNeighbor.claim ? '⚔️ 명분 보유' : matchedNeighbor.tradeActive ? '⛵ 교역 중' : matchedNeighbor.attitude}
+                    </span>
+                  </div>
+                  <div className="strategic-neighbor-name">
+                    {matchedNeighbor.icon} {matchedNeighbor.name} <small>({matchedNeighbor.title})</small>
+                  </div>
+                  <div className="strategic-neighbor-details">
+                    <div className="neighbor-row">
+                      <span className="neighbor-k">현재 관계</span>
+                      <span className={`neighbor-v ${matchedNeighbor.relation >= 0 ? 'text-good' : 'text-danger'}`}>
+                        {matchedNeighbor.relation >= 0 ? `+${matchedNeighbor.relation}` : matchedNeighbor.relation} ({matchedNeighbor.attitude})
+                      </span>
+                    </div>
+                    <div className="neighbor-row">
+                      <span className="neighbor-k">교역 상태</span>
+                      <span className="neighbor-v">
+                        {matchedNeighbor.tradeActive ? '✅ 교역로 개설됨 (월간 수입 기여)' : '❌ 미체결'}
+                      </span>
+                    </div>
+                    <div className="neighbor-row">
+                      <span className="neighbor-k">명분 상태</span>
+                      <span className="neighbor-v">
+                        {matchedNeighbor.claim ? '⚔️ 영유권 명분 확보 (출병 가능)' : '⚪ 명분 없음'}
+                      </span>
+                    </div>
+                    <div className="neighbor-row">
+                      <span className="neighbor-k">병합 상태</span>
+                      <span className="neighbor-v">
+                        {matchedNeighbor.annexed ? '🚩 통치령에 병합됨 (점령 완료)' : '🛡️ 독립 세력'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="strategic-neighbor-remote">
+                  <div className="remote-status-title">🌐 현재 직접 이해관계 없음</div>
+                  <p className="remote-status-desc">에르덴 변경백령과 직접 국경을 접하지 않거나 상설 외교 사절이 개설되지 않은 대륙 세력입니다.</p>
+                </div>
+              )}
+            </div>
+          )}
         </aside>
       </div>
 
       <div className="map-nation-legend" aria-label="대륙 세력 목록">
+        <button
+          className={`legend-player-btn ${selectedProvince.isPlayerFief || isSelectedAnnexed ? 'active' : ''}`}
+          style={{ '--nation-color': '#0f766e' } as React.CSSProperties}
+          onClick={() => {
+            setSelectedProvince(playerFief)
+            centerOnPoint(playerFief.center[0], playerFief.center[1])
+          }}
+          title="에르덴 변경백령 및 직속 통치령"
+        >
+          <span>🚩</span>
+          <b>에르덴 통치령</b>
+          <small>{totalDominionCount}영지 (본령 1+병합 {annexedCount})</small>
+        </button>
         {Object.values(NATIONS).map((nation) => (
-          <button key={nation.id} className={nation.id === selectedNation.id ? 'active' : ''} style={{ '--nation-color': nation.baseColor } as React.CSSProperties} onClick={() => focusNation(nation)}>
+          <button key={nation.id} className={nation.id === selectedNation.id && !isSelectedAnnexed ? 'active' : ''} style={{ '--nation-color': nation.baseColor } as React.CSSProperties} onClick={() => focusNation(nation)}>
             <span>{nation.emblem}</span><b>{nation.name}</b><small>{nation.totalTroops}</small>
           </button>
         ))}

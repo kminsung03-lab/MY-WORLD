@@ -185,3 +185,30 @@ export const NATIONAL_BORDERS:BorderSegment[]=[]
 PROVINCES.forEach(province=>{const polygon=province.vertices;for(let i=0;i<polygon.length;i++){const a=polygon[i],b=polygon[(i+1)%polygon.length],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1,mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,ox=(-dy/length)*5,oy=(dx/length)*5,left=ownerAt(mx+ox,my+oy,province.landmassId||''),right=ownerAt(mx-ox,my-oy,province.landmassId||'');if(left&&right&&left!==right)NATIONAL_BORDERS.push({from:a,to:b,landmassId:province.landmassId||''})}})
 
 export const NATION_LABEL_POINTS:Record<string,[number,number]>={vael_crown:[175,350],frostmark:[1030,250],thorn_empire:[520,470],auric_league:[520,960],luminas:[1020,690],sylvana:[1600,600],obsidian_pact:[900,1110],solaris:[1550,1080],moon_clans:[1830,370],jade_dynasty:[1990,770],wild_marches:[1310,780]}
+
+export const STRATEGIC_TARGET_COORDINATES: Record<string, [number, number]> = {
+  crown: [997, 630],      // 루미나스 왕령 (오르미어)
+  sylvana: [1389, 576],   // 실바나 숲의회 (드라리아)
+  ironridge: [1056, 562], // 철령 남작령 (토르가르드)
+  auric: [744, 854],      // 아우릭 자유시 (브린하임)
+  goblin: [1300, 749],    // 붉은이빨 부족령 (칼도르)
+}
+
+export function findStrategicTargetProvince(
+  targetCoord: [number, number],
+  provinces: Province[] = PROVINCES,
+): Province | null {
+  let bestDist = Infinity
+  let nearest: Province | null = null
+  for (const province of provinces) {
+    if (province.isPlayerFief) continue
+    const dx = province.center[0] - targetCoord[0]
+    const dy = province.center[1] - targetCoord[1]
+    const dist = dx * dx + dy * dy
+    if (dist < bestDist) {
+      bestDist = dist
+      nearest = province
+    }
+  }
+  return nearest
+}

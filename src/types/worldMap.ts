@@ -27,9 +27,16 @@ export interface Province {
   color: string
   troops: string
   isPlayerFief?: boolean
+  isAnnexed?: boolean
+  annexedFrom?: string
   rulerName: string
   defense: number
   economy: number
   specialty: string
   description: string
+}
+
+export interface StrategicTarget {
+  neighborId: string
+  coord: [number, number]
 }

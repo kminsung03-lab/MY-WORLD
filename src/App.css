@@ -2124,9 +2124,70 @@ body {
 
 .ruler-line span { color: #fbbf24; font-weight: 700; white-space: nowrap; }
 
+.annexed-origin-card {
+  background: rgba(15, 118, 110, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.annexed-origin-card .origin-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.annexed-origin-card .origin-val {
+  font-size: 12px;
+  color: #f8fafc;
+}
+
+.annexed-origin-card .origin-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.inspector-badge.badge-annexed {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  color: #fef08a;
+  border: 1px solid #f59e0b;
+  font-weight: 800;
+}
+
+.highlight-dominion {
+  background: rgba(15, 118, 110, 0.22) !important;
+  border-color: rgba(45, 212, 191, 0.35) !important;
+}
+
+.text-cyan {
+  color: #2dd4bf !important;
+}
+
+.dominion-counter {
+  color: #2dd4bf;
+  margin-left: 6px;
+  font-weight: 800;
+}
+
+.nation-detail-card.annexed-political-card {
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: linear-gradient(150deg, #091c1a 0%, #061214 100%);
+}
+
+.nation-title.text-gold {
+  color: #fbbf24 !important;
+}
+
 .map-nation-legend {
   display: grid;
-  grid-template-columns: repeat(11, minmax(85px, 1fr));
+  grid-template-columns: repeat(12, minmax(80px, 1fr));
   gap: 6px;
 }
 
@@ -2145,6 +2206,24 @@ body {
   border-radius: 6px;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.map-nation-legend button.legend-player-btn {
+  background: #0d3d38;
+  border-color: #0f766e;
+  border-top: 3px solid #fbbf24;
+  color: #fef08a;
+}
+
+.map-nation-legend button.legend-player-btn:hover,
+.map-nation-legend button.legend-player-btn.active {
+  background: #115e59;
+  border-color: #2dd4bf;
+  border-top: 3px solid #fbbf24;
+}
+
+.map-nation-legend button.legend-player-btn small {
+  color: #5eead4;
 }
 
 .map-nation-legend button:hover,
