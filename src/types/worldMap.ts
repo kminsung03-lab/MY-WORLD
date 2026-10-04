@@ -21,6 +21,7 @@ export interface Province {
   id: string
   name: string
   nationId: string
+  landmassId?: string
   center: [number, number]
   vertices: [number, number][]
   color: string

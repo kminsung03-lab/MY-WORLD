@@ -1781,3 +1781,165 @@ body {
   font-size: 11px;
   color: #94a3b8;
 }
+
+/* Aetheria grand-strategy atlas overrides */
+.world-map-wrapper {
+  width: min(1660px, calc(100vw - 32px));
+  margin-left: 50%;
+  transform: translateX(-50%);
+  padding: 18px;
+  gap: 14px;
+  background: linear-gradient(145deg, #111b2d 0%, #0b1220 100%);
+  border-color: #31435d;
+  box-shadow: 0 20px 55px rgba(1, 8, 20, 0.38);
+}
+
+.map-main-layout {
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 14px;
+}
+
+.map-canvas-container {
+  height: min(730px, calc(100vh - 235px));
+  min-height: 590px;
+  background: #2c557f;
+  border: 2px solid #26384f;
+  border-radius: 10px;
+  box-shadow: inset 0 0 40px rgba(7, 22, 42, 0.38);
+}
+
+.map-inspector-panel {
+  max-height: min(730px, calc(100vh - 235px));
+  min-height: 590px;
+  padding-right: 3px;
+}
+
+.map-hover-chip {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 190px;
+  padding: 9px 12px;
+  color: #f8fafc;
+  background: rgba(8, 15, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.map-hover-chip b { font-size: 13px; }
+.map-hover-chip span { color: #a9b6c9; font-size: 11px; }
+
+.map-compass {
+  position: absolute;
+  right: 18px;
+  top: 16px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(9, 21, 38, 0.45);
+  pointer-events: none;
+}
+
+.map-compass b { font-size: 27px; line-height: 1; }
+.map-compass span { position: absolute; top: -13px; font-size: 10px; font-weight: 800; }
+
+.map-scale {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  padding: 5px 9px;
+  font-size: 10px;
+  color: #d4deec;
+  background: rgba(9, 21, 38, 0.7);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.map-overlay-hint {
+  bottom: 14px;
+  font-size: 10px;
+  background: rgba(9, 21, 38, 0.72);
+}
+
+.atlas-kicker {
+  color: #7dd3fc;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.fief-detail-card,
+.nation-detail-card {
+  background: linear-gradient(150deg, #0c1525 0%, #090f1b 100%);
+  padding: 15px;
+  gap: 10px;
+}
+
+.ruler-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ruler-line span { color: #fbbf24; font-weight: 700; white-space: nowrap; }
+
+.map-nation-legend {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(85px, 1fr));
+  gap: 6px;
+}
+
+.map-nation-legend button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 5px;
+  padding: 7px 8px;
+  text-align: left;
+  color: #dce5f2;
+  background: #0c1524;
+  border: 1px solid #26364c;
+  border-top: 3px solid var(--nation-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.map-nation-legend button:hover,
+.map-nation-legend button.active {
+  transform: translateY(-2px);
+  background: #17243a;
+  border-left-color: var(--nation-color);
+  border-right-color: var(--nation-color);
+  border-bottom-color: var(--nation-color);
+}
+
+.map-nation-legend button > span { grid-row: 1 / 3; font-size: 16px; }
+.map-nation-legend b { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.map-nation-legend small { color: #7f8da3; font-size: 9px; }
+
+@media (max-width: 1100px) {
+  .map-main-layout { grid-template-columns: 1fr; }
+  .map-canvas-container { height: 620px; min-height: 500px; }
+  .map-inspector-panel { min-height: 0; max-height: none; display: grid; grid-template-columns: 1fr 1fr; }
+  .map-nation-legend { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .world-map-wrapper { width: calc(100vw - 16px); padding: 10px; }
+  .map-canvas-container { height: 500px; min-height: 500px; }
+  .map-inspector-panel { display: flex; }
+  .map-nation-legend { grid-template-columns: repeat(2, 1fr); }
+  .map-overlay-hint { display: none; }
+}

@@ -1,735 +1,181 @@
 import type { Nation, Province } from '../types/worldMap'
 
-export const CONTINENT_NAME = '칼라드리아 대륙 (Continent of Caladria)'
-export const MAP_WIDTH = 2000
-export const MAP_HEIGHT = 1300
+export const MAP_WIDTH = 2400
+export const MAP_HEIGHT = 1500
+export const CONTINENT_NAME = '에테리아 대륙 (Aetheria)'
 
-// 1. Five Major Powers & Wilderness
-export const NATIONS: Record<string, Nation> = {
-  kingdom_luminas: {
-    id: 'kingdom_luminas',
-    name: '루미나스 왕국',
-    type: 'kingdom',
-    typeLabel: '봉건 왕국 (플레이어 소속국)',
-    baseColor: '#38bdf8', // Light sky blue
-    borderHighlightColor: '#0284c7',
-    emblem: '👑',
-    capital: '성왕도 에텔가르드',
-    ruler: '국왕 에드워드 4세',
-    totalTroops: '28.5K',
-    relationLabel: '종주국 (내 주군)',
-    militaryPower: 'A (기사단 & 왕실 근위대)',
-    economyPower: 'A (비옥한 중원 평야)',
-    description:
-      '유구한 역사와 기사도 전통을 자랑하는 대륙 중앙의 왕국. 플레이어가 충성을 맹세하고 동부 변경 개척지를 하사받은 모국입니다.',
-  },
-  valdor_empire: {
-    id: 'valdor_empire',
-    name: '발도르 철혈 제국',
-    type: 'empire',
-    typeLabel: '군사 제국',
-    baseColor: '#f87171', // Red / Crimson
-    borderHighlightColor: '#dc2626',
-    emblem: '🦅',
-    capital: '바란하임 흑철 요새',
-    ruler: '철혈 황제 블라디미르 1세',
-    totalTroops: '38.2K',
-    relationLabel: '군사적 긴장 (적대 위험)',
-    militaryPower: 'S (대규모 흑철기병단)',
-    economyPower: 'B+ (제철소 & 총력 징집)',
-    description:
-      '북서부 험준한 산악과 평원을 지배하는 호전적인 군사 제국. 루미나스 왕국의 국경을 끊임없이 위협하며 기회를 엿보고 있습니다.',
-  },
-  free_republic: {
-    id: 'free_republic',
-    name: '자유 항만 공화국 연합',
-    type: 'republic',
-    typeLabel: '상인 공화국',
-    baseColor: '#fbbf24', // Golden yellow
-    borderHighlightColor: '#d97706',
-    emblem: '⚖️',
-    capital: '베네치아 자유항',
-    ruler: '대의원 의장 카스파 론',
-    totalTroops: '21.0K',
-    relationLabel: '중립 (통상 조약)',
-    militaryPower: 'B (사설 용병단 & 해군)',
-    economyPower: 'S+ (대륙 최고 무역 자본)',
-    description:
-      '남부 해안선을 따라 형성된 7개 항구 도시들의 자치 연합. 거대한 무역 상단과 황금으로 막강한 영향력을 행사합니다.',
-  },
-  sylvana_federation: {
-    id: 'sylvana_federation',
-    name: '실바나 대삼림 연방',
-    type: 'federation',
-    typeLabel: '자치 연방',
-    baseColor: '#4ade80', // Lush Green
-    borderHighlightColor: '#16a34a',
-    emblem: '🌿',
-    capital: '세계수 텔드라실',
-    ruler: '대장로 엘로라 에델',
-    totalTroops: '24.2K',
-    relationLabel: '우호 및 친선',
-    militaryPower: 'A- (정령 마법사 & 삼림 순찰대)',
-    economyPower: 'B (희귀 원목, 비단, 약초)',
-    description:
-      '동부의 신비로운 원시림에 정착한 엘프와 수인 종족의 평화 연방. 플레이어의 개척 영지와 동쪽 숲 국경을 평화롭게 접하고 있습니다.',
-  },
-  solaris_holy_empire: {
-    id: 'solaris_holy_empire',
-    name: '솔라리스 신성 황국',
-    type: 'holy_empire',
-    typeLabel: '신정 황국',
-    baseColor: '#c084fc', // Purple / Violet
-    borderHighlightColor: '#9333ea',
-    emblem: '☀️',
-    capital: '성도 솔라리아',
-    ruler: '교황 루시우스 3세',
-    totalTroops: '29.8K',
-    relationLabel: '배타적 중립',
-    militaryPower: 'A+ (광휘의 성기사단)',
-    economyPower: 'A (신도 헌금 및 성유물)',
-    description:
-      '대륙 남동부를 성역화하여 다스리는 종교 황국. 태양의 교리를 따르며 타국의 분쟁에는 관여하지 않으나 막강한 성기사단을 보유하고 있습니다.',
-  },
-  wilderness: {
-    id: 'wilderness',
-    name: '미개척 야생지 (몬스터 군락)',
-    type: 'wilderness',
-    typeLabel: '무주지 / 개척 목표',
-    baseColor: '#a1a1aa', // Slate grey / olive
-    borderHighlightColor: '#71717a',
-    emblem: '💀',
-    capital: '야생 오크 요새',
-    ruler: '괴수 군단 & 고블린 부족',
-    totalTroops: '12.4K',
-    relationLabel: '토벌 및 정복 대상',
-    militaryPower: 'B+ (야생 몬스터 무리)',
-    economyPower: 'D (원시 미개간 자원)',
-    description:
-      '왕국 동부와 실바나 삼림 사이에 끼어 있는 위험한 몬스터 서식지. 플레이어가 사냥터를 통해 정복하고 흡수해야 할 개척지입니다.',
-  },
-}
-
-// 2. Province Seeds (Centers of ~75 Territorial Provinces)
-interface ProvinceSeed {
+export interface Landmass {
   id: string
   name: string
-  nationId: string
-  x: number
-  y: number
-  troops: string
-  rulerName: string
-  isPlayer?: boolean
-  defense: number
-  economy: number
-  specialty: string
-  desc: string
+  points: [number, number][]
+  provinceCount: number
 }
 
-const PROVINCE_SEEDS: ProvinceSeed[] = [
-  // --- 👑 Kingdom of Luminas (Central) ---
-  {
-    id: 'my_world',
-    name: 'MY-WORLD',
-    nationId: 'kingdom_luminas',
-    x: 1040,
-    y: 620,
-    troops: '3.5K',
-    rulerName: '플레이어 영주',
-    isPlayer: true,
-    defense: 45,
-    economy: 40,
-    specialty: '철광 채굴, 영토 개척, 전방 방벽',
-    desc: '플레이어가 다스리는 루미나스 왕국 동부 국경의 개척 영지. 몬스터를 몰아내고 부지를 확장하는 핵심 요충지입니다.',
-  },
-  {
-    id: 'lum_capital',
-    name: '에텔가르드',
-    nationId: 'kingdom_luminas',
-    x: 880,
-    y: 560,
-    troops: '12.0K',
-    rulerName: '국왕 에드워드 4세',
-    defense: 95,
-    economy: 90,
-    specialty: '왕도, 중앙 행정, 기사단 본부',
-    desc: '루미나스 왕국의 거대한 백색 성벽 수도.',
-  },
-  {
-    id: 'lum_heylun',
-    name: '하일룬 백작령',
-    nationId: 'kingdom_luminas',
-    x: 780,
-    y: 640,
-    troops: '4.8K',
-    rulerName: '레오나르도 백작',
-    defense: 50,
-    economy: 75,
-    specialty: '황금 밀, 우수한 군마',
-    desc: '플레이어 영지 서쪽에 인접한 풍요로운 곡창지대.',
-  },
-  {
-    id: 'lum_karkas',
-    name: '카르카스 자작령',
-    nationId: 'kingdom_luminas',
-    x: 960,
-    y: 480,
-    troops: '5.2K',
-    rulerName: '발타자르 자작',
-    defense: 65,
-    economy: 50,
-    specialty: '산악 요새, 정예 척후대',
-    desc: '플레이어 영지 북쪽 산맥을 수비하는 자작령.',
-  },
-  {
-    id: 'lum_blackforest',
-    name: '검은숲 변경백령',
-    nationId: 'kingdom_luminas',
-    x: 1020,
-    y: 760,
-    troops: '6.1K',
-    rulerName: '로이드 변경백',
-    defense: 80,
-    economy: 35,
-    specialty: '몬스터 수렵 전문가, 흑철 목책',
-    desc: '플레이어 영지 남쪽에 인접한 베테랑 방어선.',
-  },
-  {
-    id: 'lum_rivendell',
-    name: '리벤펠트',
-    nationId: 'kingdom_luminas',
-    x: 820,
-    y: 450,
-    troops: '4.1K',
-    rulerName: '아델라인 남작',
-    defense: 45,
-    economy: 55,
-    specialty: '포도주, 직물 무역',
-    desc: '왕국 북부의 온화한 구릉 지대.',
-  },
-  {
-    id: 'lum_marina',
-    name: '마리나베이',
-    nationId: 'kingdom_luminas',
-    x: 700,
-    y: 530,
-    troops: '3.9K',
-    rulerName: '길버트 남작',
-    defense: 40,
-    economy: 60,
-    specialty: '내해 어업, 소금',
-    desc: '왕국 내해와 접한 어업 거점.',
-  },
-  {
-    id: 'lum_westgate',
-    name: '웨스트게이트',
-    nationId: 'kingdom_luminas',
-    x: 680,
-    y: 680,
-    troops: '5.5K',
-    rulerName: '바론 하워드',
-    defense: 70,
-    economy: 45,
-    specialty: '국경 요새, 대포 주조',
-    desc: '제국과의 서부 접경 요충지.',
-  },
-  {
-    id: 'lum_silverlake',
-    name: '은빛호수령',
-    nationId: 'kingdom_luminas',
-    x: 880,
-    y: 690,
-    troops: '4.3K',
-    rulerName: '마리안 백작부인',
-    defense: 45,
-    economy: 65,
-    specialty: '담수어, 진주, 은세공',
-    desc: '거대한 호수를 둘러싼 수려한 영지.',
-  },
+export interface BorderSegment {
+  from: [number, number]
+  to: [number, number]
+  landmassId: string
+}
 
-  // --- 🦅 Valdor Empire (North-West) ---
-  {
-    id: 'val_baran',
-    name: '바란하임',
-    nationId: 'valdor_empire',
-    x: 380,
-    y: 320,
-    troops: '14.5K',
-    rulerName: '황제 블라디미르 1세',
-    defense: 98,
-    economy: 85,
-    specialty: '제국 수도, 흑철 공성소',
-    desc: '발도르 제국의 거대한 수도이자 철옹성.',
-  },
-  {
-    id: 'val_ironhold',
-    name: '아이언홀드',
-    nationId: 'valdor_empire',
-    x: 520,
-    y: 260,
-    troops: '6.8K',
-    rulerName: '장군 드라코',
-    defense: 85,
-    economy: 60,
-    specialty: '흑철 광산, 제련소',
-    desc: '제국의 무기를 찍어내는 대규모 공업 도시.',
-  },
-  {
-    id: 'val_northend',
-    name: '노스엔드',
-    nationId: 'valdor_empire',
-    x: 320,
-    y: 180,
-    troops: '4.2K',
-    rulerName: '영주 올라프',
-    defense: 60,
-    economy: 30,
-    specialty: '빙설 훈련소, 모피',
-    desc: '북극해와 맞닿은 혹한의 군사 기지.',
-  },
-  {
-    id: 'val_redcliff',
-    name: '레드클리프',
-    nationId: 'valdor_empire',
-    x: 240,
-    y: 360,
-    troops: '5.1K',
-    rulerName: '사령관 보리스',
-    defense: 75,
-    economy: 40,
-    specialty: '해안 절벽 감시루',
-    desc: '서쪽 대양을 조망하는 절벽 요새.',
-  },
-  {
-    id: 'val_frontline',
-    name: '제1군단 전방기지',
-    nationId: 'valdor_empire',
-    x: 560,
-    y: 420,
-    troops: '7.6K',
-    rulerName: '선봉장 크루거',
-    defense: 80,
-    economy: 35,
-    specialty: '기병 돌격대, 전초기지',
-    desc: '왕국 국경을 직접 노려보는 제국의 칼끝.',
-  },
-  {
-    id: 'val_blackrock',
-    name: '블랙록 협곡',
-    nationId: 'valdor_empire',
-    x: 440,
-    y: 460,
-    troops: '4.7K',
-    rulerName: '남작 슈나이더',
-    defense: 70,
-    economy: 40,
-    specialty: '협곡 매복로, 돌격병',
-    desc: '자연 협곡을 활용한 천연 방어선.',
-  },
-  {
-    id: 'val_frostpeak',
-    name: '프로스트피크',
-    nationId: 'valdor_empire',
-    x: 460,
-    y: 140,
-    troops: '3.9K',
-    rulerName: '설산 경비대장',
-    defense: 65,
-    economy: 25,
-    specialty: '산악 늑대병',
-    desc: '눈 덮인 고산 지대 거점.',
-  },
+function roughenCoast(points: [number, number][], intensity: number): [number, number][] {
+  const result: [number, number][] = []
+  points.forEach((point, index) => {
+    const next = points[(index + 1) % points.length]
+    result.push(point)
+    const dx = next[0] - point[0]
+    const dy = next[1] - point[1]
+    const length = Math.hypot(dx, dy) || 1
+    const wave = Math.sin((point[0] * 12.9898 + point[1] * 78.233 + index * 31.7))
+    result.push([
+      (point[0] + next[0]) / 2 + (-dy / length) * wave * intensity,
+      (point[1] + next[1]) / 2 + (dx / length) * wave * intensity,
+    ])
+  })
+  return result
+}
 
-  // --- ⚖️ Free Ports Republic (South-West) ---
+// Hand-authored coastlines keep the silhouette intentional. Province boundaries are
+// generated independently, so the map stays dense without losing its fantasy geography.
+export const LANDMASSES: Landmass[] = [
   {
-    id: 'rep_venecia',
-    name: '베네치아',
-    nationId: 'free_republic',
-    x: 440,
-    y: 920,
-    troops: '9.5K',
-    rulerName: '의장 카스파 론',
-    defense: 65,
-    economy: 100,
-    specialty: '공화국 수도, 세계 무역항',
-    desc: '황금과 향신료가 넘쳐나는 대륙의 시장.',
+    id: 'aetheria', name: '에테리아 본대륙', provinceCount: 255,
+    points: roughenCoast([
+      [310,260],[390,205],[490,175],[565,205],[650,150],[750,168],[835,125],[935,145],
+      [1015,115],[1110,150],[1195,125],[1290,165],[1390,148],[1475,205],[1570,190],
+      [1650,245],[1755,225],[1830,280],[1935,275],[2035,335],[2105,410],[2070,478],
+      [2155,540],[2120,615],[2180,690],[2125,748],[2170,835],[2105,885],[2118,970],
+      [2040,1015],[1990,1110],[1905,1135],[1840,1208],[1740,1190],[1665,1265],
+      [1575,1230],[1495,1308],[1405,1270],[1320,1325],[1230,1280],[1150,1320],
+      [1060,1268],[980,1292],[910,1238],[825,1260],[755,1205],[670,1225],[620,1150],
+      [535,1162],[495,1080],[410,1050],[430,970],[355,915],[390,840],[320,775],[365,708],
+      [295,650],[340,585],[275,520],[330,465],[265,395],[325,345],
+    ], 17),
   },
-  {
-    id: 'rep_port_royal',
-    name: '포트 로열',
-    nationId: 'free_republic',
-    x: 320,
-    y: 840,
-    troops: '4.8K',
-    rulerName: '제독 모건',
-    defense: 55,
-    economy: 85,
-    specialty: '군함 건조창, 용병단',
-    desc: '공화국 해군의 총본산.',
-  },
-  {
-    id: 'rep_amberbay',
-    name: '앰버베이',
-    nationId: 'free_republic',
-    x: 580,
-    y: 880,
-    troops: '4.3K',
-    rulerName: '상인 길드장 페드로',
-    defense: 45,
-    economy: 80,
-    specialty: '보석 가공, 은행',
-    desc: '대륙 상인들의 환전과 금융 허브.',
-  },
-  {
-    id: 'rep_cape_south',
-    name: '케이프 사우스',
-    nationId: 'free_republic',
-    x: 260,
-    y: 1020,
-    troops: '3.6K',
-    rulerName: '선장 바르보사',
-    defense: 40,
-    economy: 70,
-    specialty: '남해 무역로, 등대',
-    desc: '남쪽 해양 항로의 관문.',
-  },
-  {
-    id: 'rep_golden_fields',
-    name: '골든필드',
-    nationId: 'free_republic',
-    x: 500,
-    y: 780,
-    troops: '4.0K',
-    rulerName: '영주 마르코',
-    defense: 50,
-    economy: 75,
-    specialty: '포도 농장, 올리브유',
-    desc: '공화국의 내륙 식량 공급원.',
-  },
-  {
-    id: 'rep_isla_verde',
-    name: '이슬라 베르데',
-    nationId: 'free_republic',
-    x: 400,
-    y: 1080,
-    troops: '2.8K',
-    rulerName: '총독 에밀리오',
-    defense: 35,
-    economy: 65,
-    specialty: '설탕, 열대 과일',
-    desc: '남해안의 풍요로운 제도.',
-  },
-
-  // --- 🌿 Sylvana Federation (East) ---
-  {
-    id: 'syl_teldrasil',
-    name: '세계수 텔드라실',
-    nationId: 'sylvana_federation',
-    x: 1480,
-    y: 480,
-    troops: '10.2K',
-    rulerName: '대장로 엘로라 에델',
-    defense: 88,
-    economy: 75,
-    specialty: '연방 수도, 엘프 궁술단, 세계수',
-    desc: '하늘을 찌를 듯 솟아오른 영목의 성지.',
-  },
-  {
-    id: 'syl_greenmist',
-    name: '그린미스트',
-    nationId: 'sylvana_federation',
-    x: 1260,
-    y: 420,
-    troops: '5.1K',
-    rulerName: '순찰대장 아리엘',
-    defense: 65,
-    economy: 50,
-    specialty: '원목, 활과 화살, 순찰대',
-    desc: '루미나스 왕국과 접하는 연방의 서부 방벽.',
-  },
-  {
-    id: 'syl_whispering',
-    name: '속삭임의 숲',
-    nationId: 'sylvana_federation',
-    x: 1360,
-    y: 600,
-    troops: '4.7K',
-    rulerName: '정령사 셀린',
-    defense: 60,
-    economy: 60,
-    specialty: '약초 비약, 마나 크리스탈',
-    desc: '고대 정령들의 속삭임이 깃든 숲.',
-  },
-  {
-    id: 'syl_evergreen',
-    name: '에버그린 구릉',
-    nationId: 'sylvana_federation',
-    x: 1600,
-    y: 360,
-    troops: '3.8K',
-    rulerName: '수인 족장 카록',
-    defense: 70,
-    economy: 45,
-    specialty: '표범 기수대, 사냥감',
-    desc: '강인한 수인 전사들의 자치 지구.',
-  },
-  {
-    id: 'syl_moonlake',
-    name: '달빛호수',
-    nationId: 'sylvana_federation',
-    x: 1540,
-    y: 660,
-    troops: '4.2K',
-    rulerName: '달의 사제 이시스',
-    defense: 55,
-    economy: 55,
-    specialty: '성수, 달빛 직물',
-    desc: '달빛이 영롱하게 비치는 신비로운 호수.',
-  },
-  {
-    id: 'syl_east_bay',
-    name: '이스트베이',
-    nationId: 'sylvana_federation',
-    x: 1720,
-    y: 520,
-    troops: '3.4K',
-    rulerName: '항해사 피오나',
-    defense: 45,
-    economy: 60,
-    specialty: '동해 어업, 진주',
-    desc: '연방의 동쪽 대양 출구.',
-  },
-
-  // --- ☀️ Solaris Holy Empire (South-East) ---
-  {
-    id: 'sol_solaria',
-    name: '성도 솔라리아',
-    nationId: 'solaris_holy_empire',
-    x: 1260,
-    y: 960,
-    troops: '11.8K',
-    rulerName: '교황 루시우스 3세',
-    defense: 92,
-    economy: 85,
-    specialty: '황국 수도, 성기사단 총본부',
-    desc: '대리석과 황금 돔으로 장식된 신성 도시.',
-  },
-  {
-    id: 'sol_lumina_gate',
-    name: '광휘의 관문',
-    nationId: 'solaris_holy_empire',
-    x: 1080,
-    y: 890,
-    troops: '5.8K',
-    rulerName: '성기사장 미카엘',
-    defense: 85,
-    economy: 45,
-    specialty: '빛의 성벽, 성스러운 쇠뇌',
-    desc: '왕국 남부와 접한 성스러운 방어 요새.',
-  },
-  {
-    id: 'sol_dawn_hills',
-    name: '여명의 언덕',
-    nationId: 'solaris_holy_empire',
-    x: 1420,
-    y: 900,
-    troops: '4.5K',
-    rulerName: '주교 라파엘',
-    defense: 60,
-    economy: 65,
-    specialty: '포도주, 필사본, 도서관',
-    desc: '고대 성서와 학문이 보존된 사원 도시.',
-  },
-  {
-    id: 'sol_sun_shrine',
-    name: '태양의 신전',
-    nationId: 'solaris_holy_empire',
-    x: 1360,
-    y: 1080,
-    troops: '4.9K',
-    rulerName: '고위 사제 우리엘',
-    defense: 75,
-    economy: 50,
-    specialty: '성스러운 기름, 축복',
-    desc: '순례자들의 발길이 끊이지 않는 영험한 신전.',
-  },
-  {
-    id: 'sol_south_reach',
-    name: '사우스리치',
-    nationId: 'solaris_holy_empire',
-    x: 1140,
-    y: 1090,
-    troops: '3.7K',
-    rulerName: '수도원장 베네딕트',
-    defense: 50,
-    economy: 60,
-    specialty: '수도원 맥주, 농작물',
-    desc: '경건한 수도사들이 농경을 일구는 남부 영지.',
-  },
-
-  // --- 💀 Wilderness Frontier (Directly bordering player MY-WORLD!) ---
-  {
-    id: 'wild_goblin_ridge',
-    name: '고블린 바위산 (사냥터 1)',
-    nationId: 'wilderness',
-    x: 1140,
-    y: 560,
-    troops: '2.5K',
-    rulerName: '고블린 족장',
-    defense: 30,
-    economy: 15,
-    specialty: '몬스터 소굴, 조잡한 철기',
-    desc: '플레이어 영지 바로 동쪽 바위 능선. 플레이어가 몬스터를 토벌하여 부지를 넓혀야 할 첫 개척지입니다.',
-  },
-  {
-    id: 'wild_orc_crag',
-    name: '오크 벌목 바위협곡 (사냥터 2)',
-    nationId: 'wilderness',
-    x: 1180,
-    y: 680,
-    troops: '3.8K',
-    rulerName: '오크 워로드',
-    defense: 40,
-    economy: 20,
-    specialty: '거대 원목, 야수 모피',
-    desc: '플레이어 영지 동남쪽에 자리잡은 흉폭한 오크 부족의 영토.',
-  },
-  {
-    id: 'wild_ruins',
-    name: '고대 유적지 (던전)',
-    nationId: 'wilderness',
-    x: 1120,
-    y: 470,
-    troops: '3.2K',
-    rulerName: '망령 군주',
-    defense: 50,
-    economy: 10,
-    specialty: '고대 유물, 마법 수정',
-    desc: '잊혀진 제국의 무너진 신전과 지하 묘소.',
-  },
+  { id: 'vael_isle', name: '베일 왕도섬', provinceCount: 20, points: [[85,335],[145,285],[235,275],[292,320],[275,395],[218,438],[135,425],[72,382]] },
+  { id: 'northern_crown', name: '북부 왕관령', provinceCount: 19, points: [[1255,52],[1335,25],[1428,48],[1490,96],[1455,145],[1360,135],[1280,112]] },
+  { id: 'sunfall', name: '해넘이 대도', provinceCount: 13, points: [[205,1085],[280,1040],[365,1075],[390,1145],[350,1215],[275,1260],[205,1210],[175,1140]] },
+  { id: 'ember_isles', name: '잿불 군도', provinceCount: 8, points: [[720,1330],[775,1308],[830,1340],[812,1395],[752,1415],[700,1378]] },
+  { id: 'siren_isles', name: '세이렌 군도', provinceCount: 7, points: [[1880,1265],[1935,1238],[1992,1275],[1975,1335],[1910,1350],[1862,1315]] },
+  { id: 'eastern_shard', name: '동방 파편도', provinceCount: 6, points: [[2215,520],[2265,485],[2320,520],[2308,585],[2250,615],[2205,570]] },
 ]
 
-// 3. Voronoi Polygon Construction
-// Clips a polygon against half-plane defined by bisector between two seeds
-function clipPolygonAgainstBisector(
-  polygon: [number, number][],
-  p1: [number, number],
-  p2: [number, number]
-): [number, number][] {
-  // Midpoint
-  const mx = (p1[0] + p2[0]) / 2
-  const my = (p1[1] + p2[1]) / 2
+export const NATIONS: Record<string, Nation> = {
+  vael_crown: {
+    id:'vael_crown', name:'베일 왕관령', type:'kingdom', typeLabel:'해양 왕국', baseColor:'#a78bfa', borderHighlightColor:'#6d28d9', emblem:'♛', capital:'하이베일', ruler:'여왕 아델린 2세', totalTroops:'18.6K', relationLabel:'통상 우호', militaryPower:'B+ (왕립 함대)', economyPower:'A (대양 무역)', description:'서쪽 안개 해협의 섬과 항로를 지배하는 오래된 해양 왕국입니다.',
+  },
+  frostmark: {
+    id:'frostmark', name:'프로스트마르크', type:'kingdom', typeLabel:'북부 대공국', baseColor:'#93c5fd', borderHighlightColor:'#2563eb', emblem:'❄', capital:'윈터홀름', ruler:'대공 발데르', totalTroops:'26.1K', relationLabel:'신중한 중립', militaryPower:'A (설원 중기병)', economyPower:'B (은광과 모피)', description:'빙설 산맥과 북쪽 피오르드를 장악한 강인한 북방인들의 나라입니다.',
+  },
+  thorn_empire: {
+    id:'thorn_empire', name:'가시철 제국', type:'empire', typeLabel:'군사 제국', baseColor:'#f87171', borderHighlightColor:'#b91c1c', emblem:'⚔', capital:'카르 드라벤', ruler:'황제 모르칸 7세', totalTroops:'42.8K', relationLabel:'국경 긴장', militaryPower:'S (철갑 군단)', economyPower:'A- (철과 병기)', description:'서북 평원에서 팽창 중인 대륙 최대의 군사 국가입니다.',
+  },
+  auric_league: {
+    id:'auric_league', name:'황금해 자유도시연맹', type:'republic', typeLabel:'상업 공화 연맹', baseColor:'#fbbf24', borderHighlightColor:'#b45309', emblem:'⚖', capital:'아우렐리아', ruler:'칠인 상무평의회', totalTroops:'20.4K', relationLabel:'통상 조약', militaryPower:'B (용병과 함대)', economyPower:'S (금융과 해운)', description:'서남 황금해를 둘러싼 부유한 항구도시들의 느슨한 연맹입니다.',
+  },
+  luminas: {
+    id:'luminas', name:'루미나스 왕국', type:'kingdom', typeLabel:'기사 왕국', baseColor:'#67e8f9', borderHighlightColor:'#0891b2', emblem:'♜', capital:'에셀가르드', ruler:'국왕 에드워드 4세', totalTroops:'31.5K', relationLabel:'종주국 · 우호', militaryPower:'A (왕실 기사단)', economyPower:'A- (곡창과 직물)', description:'대륙 중앙의 비옥한 강 유역을 다스리는 플레이어의 종주 왕국입니다.',
+  },
+  sylvana: {
+    id:'sylvana', name:'실바나 대삼림 연방', type:'federation', typeLabel:'숲 자치 연방', baseColor:'#4ade80', borderHighlightColor:'#15803d', emblem:'♧', capital:'텔드라실', ruler:'대장로 엘로라', totalTroops:'24.2K', relationLabel:'우호 및 친선', militaryPower:'A- (정령술사)', economyPower:'B+ (희귀 목재)', description:'동부 원시림의 엘프와 수인 부족이 세운 평화로운 연방입니다.',
+  },
+  obsidian_pact: {
+    id:'obsidian_pact', name:'흑요석 맹약', type:'empire', typeLabel:'화산 부족 동맹', baseColor:'#fb7185', borderHighlightColor:'#be123c', emblem:'◆', capital:'오브시디아', ruler:'잿불왕 자르카', totalTroops:'28.9K', relationLabel:'불안한 휴전', militaryPower:'A (용암 주술병)', economyPower:'B (흑요석)', description:'남서 화산지대의 성채와 용광로를 연결한 전사 부족들의 맹약입니다.',
+  },
+  solaris: {
+    id:'solaris', name:'솔라리스 성광국', type:'holy_empire', typeLabel:'신정 황국', baseColor:'#f9a8d4', borderHighlightColor:'#db2777', emblem:'☀', capital:'솔라리아', ruler:'교황 루시엔 3세', totalTroops:'33.3K', relationLabel:'배타적 중립', militaryPower:'A+ (성기사단)', economyPower:'A (순례와 보석)', description:'남동 고원의 태양 신전을 중심으로 성장한 신정 국가입니다.',
+  },
+  moon_clans: {
+    id:'moon_clans', name:'월백 초원부족연맹', type:'federation', typeLabel:'유목 부족연맹', baseColor:'#c4b5fd', borderHighlightColor:'#7c3aed', emblem:'☾', capital:'은빛 천막도시', ruler:'대칸 사란', totalTroops:'22.7K', relationLabel:'중립', militaryPower:'A- (기마 궁수)', economyPower:'B- (말과 모피)', description:'동북 초원과 소금호수를 오가는 기마 부족들의 연맹입니다.',
+  },
+  jade_dynasty: {
+    id:'jade_dynasty', name:'비취 용조', type:'empire', typeLabel:'동방 제국', baseColor:'#5eead4', borderHighlightColor:'#0f766e', emblem:'龍', capital:'청람성', ruler:'천자 렌 카이', totalTroops:'36.0K', relationLabel:'사절 교환', militaryPower:'A+ (용기병)', economyPower:'A+ (비단과 도자기)', description:'동쪽 산맥 너머 강과 계단식 농지를 다스리는 오래된 왕조입니다.',
+  },
+  wild_marches: {
+    id:'wild_marches', name:'무주 야생변경', type:'wilderness', typeLabel:'군벌 · 괴수령', baseColor:'#a3a3a3', borderHighlightColor:'#525252', emblem:'☠', capital:'부서진 왕좌', ruler:'다수의 군벌과 괴수', totalTroops:'15.8K', relationLabel:'개척 및 정복 대상', militaryPower:'B+ (괴수 군락)', economyPower:'D (미개척 자원)', description:'왕국과 연방 사이에 남은 폐허, 고블린 요새, 괴수의 둥지입니다.',
+  },
+}
 
-  // Normal pointing towards p1
-  const nx = p1[0] - p2[0]
-  const ny = p1[1] - p2[1]
+interface NationAnchor { nationId:string; x:number; y:number; weight:number }
+const NATION_ANCHORS: NationAnchor[] = [
+  {nationId:'vael_crown',x:170,y:350,weight:.78},{nationId:'frostmark',x:1050,y:205,weight:1.05},
+  {nationId:'thorn_empire',x:470,y:450,weight:1.08},{nationId:'auric_league',x:510,y:1010,weight:1},
+  {nationId:'luminas',x:1030,y:690,weight:1},{nationId:'sylvana',x:1590,y:570,weight:1.02},
+  {nationId:'obsidian_pact',x:880,y:1130,weight:.94},{nationId:'solaris',x:1580,y:1090,weight:1},
+  {nationId:'moon_clans',x:1840,y:350,weight:.98},{nationId:'jade_dynasty',x:2050,y:760,weight:1.03},
+  {nationId:'wild_marches',x:1310,y:750,weight:.72},
+]
 
-  const output: [number, number][] = []
+const NAME_START=['아르','벨','칼','에스','로엔','세라','드라','미르','탈','브린','엘','하르','네르','오르','리엔','카이','바르','실','토르','윈']
+const NAME_END=['가르드','브룩','델','하임','리아','포드','렌','마르','크로프트','베일','모어','위크','도르','실','론','미어','펠','노르','락','헤이븐']
+const SPECIALTIES=['철광석과 대장간','밀과 포도주','전투마와 가죽','희귀 목재와 약초','소금과 훈제어','비단과 염료','은광과 수정','도자기와 차','조선소와 어업','양모와 직물','고대 유적과 마나석','향신료와 과수원']
+const DESCRIPTIONS=['강과 오래된 성벽이 지키는 교통의 요지.','완만한 구릉과 비옥한 농지가 펼쳐진 영지.','거친 산맥의 관문을 지키는 변경 요새.','울창한 숲과 안개 계곡이 이어지는 신비한 땅.','상단과 순례자가 모이는 번영한 시장 도시.','오랜 전쟁의 흔적과 폐허가 남은 국경령.']
 
-  const isInside = (pt: [number, number]) => {
-    return nx * (pt[0] - mx) + ny * (pt[1] - my) >= 0
+function mulberry32(seed:number){return()=>{let t=seed+=0x6d2b79f5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}}
+const random=mulberry32(0xa37e21)
+
+export function isPointInPolygon(point:[number,number],polygon:[number,number][]){
+  const [x,y]=point;let inside=false
+  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+    const [xi,yi]=polygon[i], [xj,yj]=polygon[j]
+    if((yi>y)!==(yj>y)&&x<((xj-xi)*(y-yi))/(yj-yi)+xi)inside=!inside
   }
+  return inside
+}
 
-  const getIntersection = (
-    s: [number, number],
-    e: [number, number]
-  ): [number, number] => {
-    const dx = e[0] - s[0]
-    const dy = e[1] - s[1]
-    const denom = nx * dx + ny * dy
-    if (Math.abs(denom) < 1e-9) return s
-    const numer = nx * (mx - s[0]) + ny * (my - s[1])
-    const t = Math.max(0, Math.min(1, numer / denom))
-    return [s[0] + t * dx, s[1] + t * dy]
-  }
+function bounds(points:[number,number][]){const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);return{minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)}}
+interface Seed{id:string;x:number;y:number;landmassId:string;nationId:string;isPlayer?:boolean}
 
-  for (let i = 0; i < polygon.length; i++) {
-    const cur = polygon[i]
-    const prev = polygon[(i - 1 + polygon.length) % polygon.length]
-
-    const curInside = isInside(cur)
-    const prevInside = isInside(prev)
-
-    if (curInside) {
-      if (!prevInside) {
-        output.push(getIntersection(prev, cur))
-      }
-      output.push(cur)
-    } else if (prevInside) {
-      output.push(getIntersection(prev, cur))
+function makeSeeds(){
+  const result:Seed[]=[]
+  LANDMASSES.forEach((landmass,landIndex)=>{
+    const box=bounds(landmass.points),local:[number,number][]=[]
+    const minDistance=landmass.provinceCount>30?48:38
+    let attempts=0
+    while(local.length<landmass.provinceCount&&attempts<landmass.provinceCount*1000){
+      attempts++;const x=box.minX+random()*(box.maxX-box.minX),y=box.minY+random()*(box.maxY-box.minY)
+      if(!isPointInPolygon([x,y],landmass.points))continue
+      if(local.some(([px,py])=>(px-x)**2+(py-y)**2<minDistance**2))continue
+      local.push([x,y])
     }
-  }
+    local.forEach(([x,y],index)=>{
+      let nationId='wild_marches',best=Infinity
+      NATION_ANCHORS.forEach(anchor=>{const score=Math.hypot(x-anchor.x,y-anchor.y)/anchor.weight+Math.sin(x*.017+y*.011+landIndex)*45;if(score<best){best=score;nationId=anchor.nationId}})
+      if(landmass.id==='vael_isle')nationId='vael_crown'
+      if(landmass.id==='northern_crown')nationId=index%4===0?'moon_clans':'frostmark'
+      if(landmass.id==='sunfall')nationId=index%3===0?'obsidian_pact':'auric_league'
+      if(landmass.id==='ember_isles')nationId='obsidian_pact'
+      if(landmass.id==='siren_isles')nationId=index%2?'solaris':'jade_dynasty'
+      if(landmass.id==='eastern_shard')nationId='jade_dynasty'
+      result.push({id:`${landmass.id}_${index}`,x,y,landmassId:landmass.id,nationId})
+    })
+  })
+  const player=result.filter(s=>s.landmassId==='aetheria').sort((a,b)=>Math.hypot(a.x-1120,a.y-720)-Math.hypot(b.x-1120,b.y-720))[0]
+  if(player){player.isPlayer=true;player.nationId='luminas'}
+  return result
+}
+const SEEDS=makeSeeds()
 
+function clipPolygon(poly:[number,number][],p1:[number,number],p2:[number,number]){
+  const mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2,nx=p1[0]-p2[0],ny=p1[1]-p2[1]
+  const inside=([x,y]:[number,number])=>nx*(x-mx)+ny*(y-my)>=-.0001
+  const intersect=(a:[number,number],b:[number,number]):[number,number]=>{const dx=b[0]-a[0],dy=b[1]-a[1],denom=nx*dx+ny*dy;if(Math.abs(denom)<1e-8)return a;const t=(nx*(mx-a[0])+ny*(my-a[1]))/denom;return[a[0]+t*dx,a[1]+t*dy]}
+  const output:[number,number][]=[]
+  for(let i=0;i<poly.length;i++){const cur=poly[i],prev=poly[(i+poly.length-1)%poly.length],ci=inside(cur),pi=inside(prev);if(ci){if(!pi)output.push(intersect(prev,cur));output.push(cur)}else if(pi)output.push(intersect(prev,cur))}
   return output
 }
 
-// Generate slight color variations for each province of a nation (like HOI4 / Territorial.io style)
-function adjustHexColor(hex: string, amount: number): string {
-  let c = hex.replace('#', '')
-  if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2]
-  const num = parseInt(c, 16)
-  let r = (num >> 16) + amount
-  let g = ((num >> 8) & 0x00ff) + amount
-  let b = (num & 0x0000ff) + amount
-  r = Math.min(255, Math.max(0, r))
-  g = Math.min(255, Math.max(0, g))
-  b = Math.min(255, Math.max(0, b))
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
-}
+function shadeColor(hex:string,amount:number){const value=parseInt(hex.slice(1),16);const channel=(shift:number)=>Math.max(0,Math.min(255,((value>>shift)&255)+amount));return`#${[channel(16),channel(8),channel(0)].map(c=>c.toString(16).padStart(2,'0')).join('')}`}
+function provinceName(index:number){return`${NAME_START[(index*7+3)%NAME_START.length]}${NAME_END[(index*11+5)%NAME_END.length]}`}
 
-// Build all provinces
-export const PROVINCES: Province[] = PROVINCE_SEEDS.map((seed, idx) => {
-  const p1: [number, number] = [seed.x, seed.y]
-
-  // Initial bounding box for the province
-  let poly: [number, number][] = [
-    [seed.x - 300, seed.y - 300],
-    [seed.x + 300, seed.y - 300],
-    [seed.x + 300, seed.y + 300],
-    [seed.x - 300, seed.y + 300],
-  ]
-
-  // Clip against all other seeds to form the Voronoi cell
-  for (let j = 0; j < PROVINCE_SEEDS.length; j++) {
-    if (idx === j) continue
-    const other = PROVINCE_SEEDS[j]
-    const p2: [number, number] = [other.x, other.y]
-    // Only clip if reasonably close to prevent unnecessary float calculations
-    const distSq = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
-    if (distSq > 500 * 500) continue
-
-    poly = clipPolygonAgainstBisector(poly, p1, p2)
-    if (poly.length < 3) break
-  }
-
-  // Clip within global canvas boundaries
-  poly = poly.map((pt) => [
-    Math.max(60, Math.min(MAP_WIDTH - 60, pt[0])),
-    Math.max(60, Math.min(MAP_HEIGHT - 60, pt[1])),
-  ])
-
-  const nation = NATIONS[seed.nationId]
-  const baseColor = nation ? nation.baseColor : '#64748b'
-
-  // Deterministic subtle shade variation per province (+-15 to RGB)
-  const shadeOffset = ((idx * 37) % 31) - 15
-  const color = seed.isPlayer
-    ? '#fef08a' // Bright golden highlight for player's fief
-    : adjustHexColor(baseColor, shadeOffset)
-
-  return {
-    id: seed.id,
-    name: seed.name,
-    nationId: seed.nationId,
-    center: [seed.x, seed.y],
-    vertices: poly,
-    color,
-    troops: seed.troops,
-    isPlayerFief: seed.isPlayer,
-    rulerName: seed.rulerName,
-    defense: seed.defense,
-    economy: seed.economy,
-    specialty: seed.specialty,
-    description: seed.desc,
-  }
+export const PROVINCES:Province[]=SEEDS.map((seed,index)=>{
+  let vertices:[number,number][]=[[seed.x-145,seed.y-145],[seed.x+145,seed.y-145],[seed.x+145,seed.y+145],[seed.x-145,seed.y+145]]
+  SEEDS.forEach(other=>{if(other.id===seed.id||other.landmassId!==seed.landmassId)return;if((other.x-seed.x)**2+(other.y-seed.y)**2>330**2)return;vertices=clipPolygon(vertices,[seed.x,seed.y],[other.x,other.y])})
+  const nation=NATIONS[seed.nationId],defense=25+((index*17)%70),economy=22+((index*23)%73),troops=`${(1.2+((index*37)%104)/10).toFixed(1)}K`
+  return{id:seed.id,name:seed.isPlayer?'MY-WORLD 변경백령':provinceName(index),nationId:seed.nationId,landmassId:seed.landmassId,center:[seed.x,seed.y],vertices,color:seed.isPlayer?'#fde047':shadeColor(nation.baseColor,((index*19)%29)-14),troops:seed.isPlayer?'3.5K':troops,isPlayerFief:seed.isPlayer,rulerName:seed.isPlayer?'플레이어 영주':`${['백작','남작','후작','자유도시 평의회','부족장'][index%5]} ${provinceName(index+9)}`,defense:seed.isPlayer?48:defense,economy:seed.isPlayer?42:economy,specialty:SPECIALTIES[index%SPECIALTIES.length],description:seed.isPlayer?'당신이 개척하고 성장시키는 루미나스 왕국 동부의 변경 영지.':DESCRIPTIONS[index%DESCRIPTIONS.length]}
 })
+
+function ownerAt(x:number,y:number,landmassId:string){let nearest:Province|undefined,best=Infinity;PROVINCES.forEach(p=>{if(p.landmassId!==landmassId)return;const d=(p.center[0]-x)**2+(p.center[1]-y)**2;if(d<best){best=d;nearest=p}});return nearest?.nationId}
+export const NATIONAL_BORDERS:BorderSegment[]=[]
+PROVINCES.forEach(province=>{const polygon=province.vertices;for(let i=0;i<polygon.length;i++){const a=polygon[i],b=polygon[(i+1)%polygon.length],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1,mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,ox=(-dy/length)*5,oy=(dx/length)*5,left=ownerAt(mx+ox,my+oy,province.landmassId||''),right=ownerAt(mx-ox,my-oy,province.landmassId||'');if(left&&right&&left!==right)NATIONAL_BORDERS.push({from:a,to:b,landmassId:province.landmassId||''})}})
+
+export const NATION_LABEL_POINTS:Record<string,[number,number]>={vael_crown:[175,350],frostmark:[1030,250],thorn_empire:[520,470],auric_league:[520,960],luminas:[1020,690],sylvana:[1600,600],obsidian_pact:[900,1110],solaris:[1550,1080],moon_clans:[1830,370],jade_dynasty:[1990,770],wild_marches:[1310,780]}
