@@ -33,6 +33,7 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     diplomaticAction,
     launchCampaign,
     advanceMonth,
+    resolveWorldEvent,
     resetRealm,
   } = realm
 
@@ -69,7 +70,14 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
         <div className="realm-turn-block">
           <span>왕력 {state.year}년</span>
           <strong>{state.month}월</strong>
-          <button onClick={advanceMonth}>다음 달 결산 <b>›</b></button>
+          <button
+            disabled={!!state.pendingWorldEvent}
+            className={state.pendingWorldEvent ? 'turn-btn-locked' : ''}
+            onClick={advanceMonth}
+            title={state.pendingWorldEvent ? '세계 정세 대응 결정을 먼저 내려야 합니다' : '다음 달 결산'}
+          >
+            {state.pendingWorldEvent ? '정세 대응 필요' : '다음 달 결산'} <b>{state.pendingWorldEvent ? '!' : '›'}</b>
+          </button>
         </div>
       </header>
 
@@ -97,7 +105,55 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
 
       {tab === 'overview' && (
         <div className="realm-content realm-overview-grid">
+          {state.pendingWorldEvent && (
+            <article className="realm-panel world-response-panel">
+              <div className="world-response-header">
+                <div className="world-response-meta">
+                  <span className="world-response-kicker">WORLD RESPONSE · 세력 대응 결정</span>
+                  <span className={`world-response-risk-badge risk-${state.pendingWorldEvent.riskLevel}`}>
+                    위험도: {state.pendingWorldEvent.riskLevel}
+                  </span>
+                </div>
+                <div className="world-response-sender">
+                  <span className="sender-icon">{state.pendingWorldEvent.senderIcon}</span>
+                  <div>
+                    <strong>{state.pendingWorldEvent.senderName}</strong>
+                    <small>{state.pendingWorldEvent.senderTitle}</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="world-response-body">
+                <h2>{state.pendingWorldEvent.title}</h2>
+                <p className="world-response-narrative">{state.pendingWorldEvent.description}</p>
+              </div>
+
+              <div className="world-response-choices">
+                {state.pendingWorldEvent.choices.map((choice, idx) => (
+                  <div key={choice.id} className="world-response-choice-card">
+                    <div className="choice-header">
+                      <span className="choice-num">대응책 {idx === 0 ? 'I' : 'II'}</span>
+                      <h3>{choice.label}</h3>
+                    </div>
+                    <p className="choice-desc">{choice.description}</p>
+                    <div className="choice-effects">
+                      <span className="effects-label">예상 효과:</span>
+                      <p className="effects-text">{choice.expectedEffects}</p>
+                    </div>
+                    <button
+                      className="btn-resolve-choice"
+                      onClick={() => resolveWorldEvent(choice.id)}
+                    >
+                      이 방침으로 대응 결정
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </article>
+          )}
+
           <article className="realm-panel realm-domain-panel">
+
             <div className="realm-panel-heading"><div><small>DOMAIN</small><h2>변경백령 현황</h2></div><span className="realm-status-seal">왕실 봉신</span></div>
             <div className="realm-stat-grid">
               <div><span>👥 인구</span><strong>{state.population.toLocaleString()}</strong><small>가용 인력 {state.manpower.toLocaleString()}</small></div>
@@ -211,7 +267,36 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
               return (
                 <article className={`neighbor-card ${neighbor.annexed ? 'annexed' : ''}`} key={neighbor.id}>
                   <div className="neighbor-crest">{neighbor.icon}</div>
-                  <div className="neighbor-main"><div className="neighbor-title"><div><small>{neighbor.title}</small><h3>{neighbor.name}</h3><p>{neighbor.ruler}</p></div><span className={neighbor.relation >= 10 ? 'positive' : neighbor.relation < 0 ? 'negative' : ''}>{neighbor.annexed ? '병합됨' : `관계 ${signed(neighbor.relation)}`}</span></div><div className="neighbor-tags"><span>{neighbor.attitude}</span><span>군세 {neighbor.strength * 15}</span><span>{neighbor.specialty}</span>{neighbor.tradeActive && <span className="trade-tag">교역 중</span>}{neighbor.claim && <span className="claim-tag">명분 보유</span>}</div></div>
+                  <div className="neighbor-main">
+                    <div className="neighbor-title">
+                      <div>
+                        <small>{neighbor.title}</small>
+                        <h3>{neighbor.name}</h3>
+                        <p>{neighbor.ruler}</p>
+                      </div>
+                      <span className={neighbor.relation >= 10 ? 'positive' : neighbor.relation < 0 ? 'negative' : ''}>
+                        {neighbor.annexed ? '병합됨' : `관계 ${signed(neighbor.relation)}`}
+                      </span>
+                    </div>
+                    <div className="neighbor-tags">
+                      <span>{neighbor.attitude}</span>
+                      <span>군세 {neighbor.strength * 15}</span>
+                      <span>{neighbor.specialty}</span>
+                      {neighbor.tradeActive && <span className="trade-tag">교역 중</span>}
+                      {neighbor.claim && <span className="claim-tag">명분 보유</span>}
+                    </div>
+                    <div className="neighbor-recent-box">
+                      <span className="recent-label">최근 동향</span>
+                      {neighbor.lastAction ? (
+                        <span className="recent-val">
+                          <time>[{neighbor.lastActionDate || '최근'}]</time> {neighbor.lastAction}
+                        </span>
+                      ) : (
+                        <span className="recent-val text-muted">최근 동향 없음</span>
+                      )}
+                    </div>
+                  </div>
+
                   {!neighbor.annexed && <div className="neighbor-actions"><button disabled={state.capacities.diplomacy < 1 || state.resources.treasury < 24} onClick={() => diplomaticAction(neighbor.id, 'improve')}>관계 개선</button><button disabled={neighbor.tradeActive || neighbor.relation < 10 || state.capacities.diplomacy < 1 || state.resources.treasury < 35} onClick={() => diplomaticAction(neighbor.id, 'trade')}>교역 협정</button>{neighbor.id !== 'crown' && <button className="pressure" disabled={neighbor.claim || state.capacities.command < 1 || state.legitimacy < 45} onClick={() => diplomaticAction(neighbor.id, 'pressure')}>영유권 주장</button>}{neighbor.id !== 'crown' && neighbor.claim && <button className="war" disabled={!invasionReady} onClick={() => launchCampaign(neighbor.id)}>원정 개시</button>}</div>}
                 </article>
               )

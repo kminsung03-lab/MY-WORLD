@@ -16,7 +16,6 @@ export interface RealmResources {
   iron: number
   timber: number
 }
-
 export interface RealmCapacities {
   administration: number
   diplomacy: number
@@ -41,6 +40,44 @@ export interface NeighborRealm {
   tradeActive: boolean
   claim: boolean
   annexed: boolean
+  lastAction?: string
+  lastActionDate?: string
+}
+
+export type WorldEventRisk = '낮음' | '보통' | '높음' | '위기'
+
+export interface WorldEventChoiceEffects {
+  treasury?: number
+  grain?: number
+  iron?: number
+  timber?: number
+  stability?: number
+  legitimacy?: number
+  autonomy?: number
+  royalFavor?: number
+  relation?: number
+  neighborStrength?: number
+  tradeActive?: boolean
+}
+
+export interface WorldEventChoice {
+  id: string
+  label: string
+  description: string
+  expectedEffects: string
+  effects: WorldEventChoiceEffects
+}
+
+export interface WorldEvent {
+  id: string
+  neighborId: string
+  senderName: string
+  senderTitle: string
+  senderIcon: string
+  title: string
+  description: string
+  riskLevel: WorldEventRisk
+  choices: [WorldEventChoice, WorldEventChoice]
 }
 
 export interface RealmLog {
@@ -72,4 +109,5 @@ export interface RealmState {
   royalFavor: number
   neighbors: NeighborRealm[]
   logs: RealmLog[]
+  pendingWorldEvent?: WorldEvent | null
 }

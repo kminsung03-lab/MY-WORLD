@@ -10,7 +10,6 @@ export interface IndustryDefinition {
   timberCost: number
   output: string
 }
-
 export interface PolicyDefinition {
   id: PolicyId
   branch: Exclude<Doctrine, 'unset'>
@@ -183,4 +182,5 @@ export const INITIAL_REALM_STATE: RealmState = {
       tone: 'royal',
     },
   ],
+  pendingWorldEvent: null,
 }

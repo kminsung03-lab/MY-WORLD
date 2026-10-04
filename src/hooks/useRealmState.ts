@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { INDUSTRIES, INITIAL_REALM_STATE, POLICIES } from '../constants/realmData'
+import { generateWorldEvent } from '../constants/worldEvents'
 import type { Doctrine, IndustryId, PolicyId, RealmLog, RealmState } from '../types/realm'
 
 const SAVE_KEY = 'my_world_realm_save_v1'
@@ -17,7 +18,24 @@ export function useRealmState() {
   const [state, setState] = useState<RealmState>(() => {
     try {
       const saved = localStorage.getItem(SAVE_KEY)
-      if (saved) return { ...cloneInitialState(), ...JSON.parse(saved) }
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        const initial = cloneInitialState()
+        return {
+          ...initial,
+          ...parsed,
+          neighbors: (parsed.neighbors || initial.neighbors).map((savedN: any, idx: number) => {
+            const fallback = initial.neighbors.find((n) => n.id === savedN.id) || initial.neighbors[idx] || initial.neighbors[0]
+            return {
+              ...fallback,
+              ...savedN,
+              lastAction: savedN.lastAction || undefined,
+              lastActionDate: savedN.lastActionDate || undefined,
+            }
+          }),
+          pendingWorldEvent: parsed.pendingWorldEvent || null,
+        }
+      }
     } catch (error) {
       console.error('Failed to load realm save', error)
     }
@@ -30,10 +48,11 @@ export function useRealmState() {
 
   const addLog = useCallback((draft: RealmState, title: string, detail: string, tone: RealmLog['tone'] = 'neutral') => {
     draft.logs = [
-      { id: `${Date.now()}-${Math.random()}`, date: `${draft.year}년 ${draft.month}월`, title, detail, tone },
+      { id: `log_${draft.year}_${draft.month}_${draft.logs.length}_${Date.now()}`, date: `${draft.year}년 ${draft.month}월`, title, detail, tone },
       ...draft.logs.slice(0, 11),
     ]
   }, [])
+
 
   const monthlyProjection = useMemo(() => {
     const farm = state.industries.farms.level
@@ -188,6 +207,8 @@ export function useRealmState() {
 
   const advanceMonth = () => {
     setState((previous) => {
+      if (previous.pendingWorldEvent) return previous
+
       const next = structuredClone(previous)
       const hasBureau = previous.policies.includes('royal_bureau')
       const hasCharter = previous.policies.includes('merchant_charter')
@@ -220,6 +241,93 @@ export function useRealmState() {
         ['풍년의 조짐', '하곡의 수차가 쉼 없이 돌고 있습니다. 농민들은 올해 수확을 낙관합니다.'],
       ]
       addLog(next, events[eventSeed][0], `${events[eventSeed][1]} 이번 달 결산: 금화 ${monthlyProjection.treasury >= 0 ? '+' : ''}${monthlyProjection.treasury}, 식량 ${monthlyProjection.grain >= 0 ? '+' : ''}${monthlyProjection.grain}.`, eventSeed === 2 ? 'danger' : 'neutral')
+
+      // Trigger deterministic world event from an unannexed neighbor
+      const worldEventResult = generateWorldEvent(next)
+      if (worldEventResult) {
+        next.pendingWorldEvent = worldEventResult.event
+        const targetNeighbor = next.neighbors.find((n) => n.id === worldEventResult.neighborId)
+        if (targetNeighbor) {
+          targetNeighbor.lastAction = worldEventResult.actionName
+          targetNeighbor.lastActionDate = `${next.year}년 ${next.month}월`
+        }
+      }
+
+      return next
+    })
+  }
+
+  const resolveWorldEvent = (choiceId: string) => {
+    setState((previous) => {
+      const event = previous.pendingWorldEvent
+      if (!event) return previous
+      const choice = event.choices.find((c) => c.id === choiceId)
+      if (!choice) return previous
+
+      const next = structuredClone(previous)
+      const effects = choice.effects
+
+      if (effects.treasury !== undefined) {
+        next.resources.treasury = Math.max(0, next.resources.treasury + effects.treasury)
+      }
+      if (effects.grain !== undefined) {
+        next.resources.grain = Math.max(0, next.resources.grain + effects.grain)
+      }
+      if (effects.iron !== undefined) {
+        next.resources.iron = Math.max(0, next.resources.iron + effects.iron)
+      }
+      if (effects.timber !== undefined) {
+        next.resources.timber = Math.max(0, next.resources.timber + effects.timber)
+      }
+      if (effects.stability !== undefined) {
+        next.stability = clamp(next.stability + effects.stability, 0, 100)
+      }
+      if (effects.legitimacy !== undefined) {
+        next.legitimacy = clamp(next.legitimacy + effects.legitimacy, 0, 100)
+      }
+      if (effects.autonomy !== undefined) {
+        next.autonomy = clamp(next.autonomy + effects.autonomy, 0, 100)
+      }
+      if (effects.royalFavor !== undefined) {
+        next.royalFavor = clamp(next.royalFavor + effects.royalFavor, 0, 100)
+      }
+
+      const neighbor = next.neighbors.find((n) => n.id === event.neighborId)
+      if (neighbor) {
+        if (effects.relation !== undefined) {
+          neighbor.relation = clamp(neighbor.relation + effects.relation, -100, 100)
+        }
+        if (effects.neighborStrength !== undefined) {
+          neighbor.strength = Math.max(10, neighbor.strength + effects.neighborStrength)
+        }
+        if (effects.tradeActive !== undefined) {
+          neighbor.tradeActive = effects.tradeActive
+        }
+      }
+
+      // Build concrete numerical chronicle record
+      const changes: string[] = []
+      if (effects.treasury) changes.push(`금화 ${effects.treasury > 0 ? '+' : ''}${effects.treasury}`)
+      if (effects.grain) changes.push(`식량 ${effects.grain > 0 ? '+' : ''}${effects.grain}`)
+      if (effects.iron) changes.push(`철 ${effects.iron > 0 ? '+' : ''}${effects.iron}`)
+      if (effects.timber) changes.push(`목재 ${effects.timber > 0 ? '+' : ''}${effects.timber}`)
+      if (effects.stability) changes.push(`안정도 ${effects.stability > 0 ? '+' : ''}${effects.stability}%`)
+      if (effects.legitimacy) changes.push(`정통성 ${effects.legitimacy > 0 ? '+' : ''}${effects.legitimacy}%`)
+      if (effects.autonomy) changes.push(`자치도 ${effects.autonomy > 0 ? '+' : ''}${effects.autonomy}%`)
+      if (effects.royalFavor) changes.push(`왕실 총애 ${effects.royalFavor > 0 ? '+' : ''}${effects.royalFavor}%`)
+      if (effects.relation && neighbor) changes.push(`${neighbor.name} 관계 ${effects.relation > 0 ? '+' : ''}${effects.relation}`)
+      if (effects.neighborStrength && neighbor) changes.push(`${neighbor.name} 군세 ${effects.neighborStrength > 0 ? '+' : ''}${effects.neighborStrength * 15}`)
+      if (effects.tradeActive !== undefined && neighbor) changes.push(`${neighbor.name} 교역로 ${effects.tradeActive ? '개설' : '중단'}`)
+
+      const changeStr = changes.length > 0 ? ` (결과: ${changes.join(', ')})` : ''
+      let tone: RealmLog['tone'] = 'neutral'
+      if (effects.royalFavor && effects.royalFavor > 0) tone = 'royal'
+      else if (effects.relation && effects.relation < 0) tone = 'danger'
+      else if ((effects.relation && effects.relation > 0) || (effects.stability && effects.stability > 0)) tone = 'good'
+
+      addLog(next, `[세력 대응] ${event.title}`, `${choice.label} - ${choice.description}${changeStr}`, tone)
+
+      next.pendingWorldEvent = null
       return next
     })
   }
@@ -240,6 +348,7 @@ export function useRealmState() {
     diplomaticAction,
     launchCampaign,
     advanceMonth,
+    resolveWorldEvent,
     resetRealm,
   }
 }
