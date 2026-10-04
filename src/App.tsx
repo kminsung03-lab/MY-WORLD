@@ -8,12 +8,13 @@ import { WorkView } from './components/WorkView'
 import { WorldMapView } from './components/WorldMapView'
 import { LogView } from './components/LogView'
 import { NightEventModal } from './components/NightEventModal'
+import { RealmView } from './components/RealmView'
 import './App.css'
 
-type TabType = 'town' | 'hunt' | 'mine' | 'work' | 'world'
+type TabType = 'realm' | 'town' | 'hunt' | 'mine' | 'work' | 'world'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('town')
+  const [activeTab, setActiveTab] = useState<TabType>('realm')
   const {
     gameState,
     activeNodes,
@@ -31,7 +32,15 @@ function App() {
   const availableLand = gameState.territory.secured - gameState.territory.used
 
   return (
-    <div className="game-app">
+    <div className={`game-app ${activeTab === 'realm' ? 'strategic-mode' : ''}`}>
+      {activeTab === 'realm' && (
+        <RealmView
+          onOpenMap={() => setActiveTab('world')}
+          onOpenLocal={() => setActiveTab('town')}
+        />
+      )}
+
+      {activeTab !== 'realm' && <>
       {/* 1. Universal Top Header (Day, AP, Threat HUD, Territory, Player, Resources) */}
       <Header
         dayState={gameState.dayState}
@@ -45,6 +54,14 @@ function App() {
 
       {/* 2. Navigation Tabs */}
       <nav className="game-nav-tabs">
+        <button
+          className="tab-btn tab-btn-realm"
+          onClick={() => setActiveTab('realm')}
+        >
+          👑 영지 경영
+          <span className="tab-pill-realm">월간 전략</span>
+        </button>
+
         <button
           className={`tab-btn ${activeTab === 'town' ? 'active' : ''}`}
           onClick={() => setActiveTab('town')}
@@ -128,13 +145,14 @@ function App() {
         {activeTab === 'world' && (
           <WorldMapView
             gameState={gameState}
-            onReturnToTown={() => setActiveTab('town')}
+            onReturnToTown={() => setActiveTab('realm')}
           />
         )}
       </main>
 
       {/* 4. Action & Progression Log Feed */}
       <LogView logs={gameState.logs} />
+      </>}
 
       {/* 5. Footer */}
       <footer className="game-footer">
