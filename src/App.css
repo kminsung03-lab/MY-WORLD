@@ -64,7 +64,7 @@ body {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
 }
 
 .game-brand {
@@ -74,7 +74,13 @@ body {
 }
 
 .brand-icon {
-  font-size: 32px;
+  font-size: 36px;
+}
+
+.brand-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .brand-title {
@@ -87,9 +93,111 @@ body {
   letter-spacing: -0.5px;
 }
 
+.day-badge {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #0b111d;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
 .brand-tag {
   font-size: 13px;
   color: var(--text-muted);
+}
+
+/* Day & AP Control Box */
+.day-control-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-darker);
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+}
+
+.ap-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ap-label {
+  font-size: 11px;
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.ap-pips {
+  display: flex;
+  gap: 4px;
+}
+
+.ap-pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.ap-pip.filled {
+  background: #facc15;
+  box-shadow: 0 0 8px #facc15;
+}
+
+.ap-pip.empty {
+  background: #1e293b;
+  border: 1px solid #334155;
+}
+
+.ap-number {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.btn-end-day {
+  background: #3b0764;
+  border: 1px solid #9333ea;
+  color: #e9d5ff;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-end-day:hover {
+  background: #581c87;
+  color: #ffffff;
+}
+
+.btn-end-day.pulse-ready {
+  animation: pulse-border 1.5s infinite;
+  background: #6b21a8;
+  color: #ffffff;
+}
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(168, 85, 247, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+.ap-zero-badge {
+  background: #facc15;
+  color: #1e1b4b;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 9999px;
 }
 
 .header-actions {
@@ -102,7 +210,7 @@ body {
   color: #93c5fd;
   border: 1px solid #3b82f6;
   border-radius: var(--radius-sm);
-  padding: 8px 14px;
+  padding: 8px 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -119,7 +227,7 @@ body {
   color: #cbd5e1;
   border: 1px solid #475569;
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  padding: 8px 10px;
   font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
@@ -127,6 +235,38 @@ body {
 
 .btn-reset:hover {
   background: #475569;
+}
+
+/* Upcoming Threat HUD Strip */
+.threat-hud-strip {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.threat-hud-icon {
+  font-size: 20px;
+}
+
+.threat-hud-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.threat-hud-label {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.threat-hud-warning {
+  color: #fef3c7;
 }
 
 /* Territory Banner */
@@ -162,17 +302,9 @@ body {
   color: var(--text-main);
 }
 
-.text-green {
-  color: #34d399 !important;
-}
-
-.text-red {
-  color: #f87171 !important;
-}
-
-.text-orange {
-  color: #fb923c !important;
-}
+.text-green { color: #34d399 !important; }
+.text-red { color: #f87171 !important; }
+.text-orange { color: #fb923c !important; }
 
 .territory-alert {
   font-size: 12px;
@@ -320,7 +452,7 @@ body {
 
 .tab-btn {
   flex: 1;
-  min-width: 140px;
+  min-width: 150px;
   padding: 12px 16px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -334,7 +466,6 @@ body {
   justify-content: center;
   gap: 8px;
   transition: all 0.2s;
-  position: relative;
 }
 
 .tab-btn:hover {
@@ -452,20 +583,9 @@ body {
   border-style: dashed;
 }
 
-.spot-icon {
-  font-size: 26px;
-}
-
-.spot-name {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.spot-level {
-  font-size: 11px;
-  color: #38bdf8;
-  font-weight: 700;
-}
+.spot-icon { font-size: 26px; }
+.spot-name { font-size: 13px; font-weight: 600; }
+.spot-level { font-size: 11px; color: #38bdf8; font-weight: 700; }
 
 /* Buildings Grid */
 .buildings-grid {
@@ -494,20 +614,9 @@ body {
   gap: 12px;
 }
 
-.b-icon {
-  font-size: 28px;
-}
-
-.b-titles h4 {
-  font-size: 16px;
-  margin: 0 0 2px;
-}
-
-.b-level {
-  font-size: 12px;
-  color: #38bdf8;
-  font-weight: 600;
-}
+.b-icon { font-size: 28px; }
+.b-titles h4 { font-size: 16px; margin: 0 0 2px; }
+.b-level { font-size: 12px; color: #38bdf8; font-weight: 600; }
 
 .b-desc {
   font-size: 13px;
@@ -549,15 +658,8 @@ body {
   justify-content: space-between;
 }
 
-.val-ok {
-  color: #34d399;
-  font-weight: 600;
-}
-
-.val-no {
-  color: #f87171;
-  font-weight: 600;
-}
+.val-ok { color: #34d399; font-weight: 600; }
+.val-no { color: #f87171; font-weight: 600; }
 
 .req-costs {
   display: flex;
@@ -627,9 +729,7 @@ body {
   cursor: default;
 }
 
-.build-hint {
-  text-align: center;
-}
+.build-hint { text-align: center; }
 
 .link-btn {
   background: none;
@@ -641,9 +741,7 @@ body {
   padding: 2px 0;
 }
 
-.link-btn:hover {
-  color: #7dd3fc;
-}
+.link-btn:hover { color: #7dd3fc; }
 
 .link-btn-alt {
   background: #1e293b;
@@ -656,9 +754,7 @@ body {
   transition: all 0.2s;
 }
 
-.link-btn-alt:hover {
-  background: #273549;
-}
+.link-btn-alt:hover { background: #273549; }
 
 /* ==========================================================================
    4. Hunting View
@@ -711,20 +807,9 @@ body {
   gap: 12px;
 }
 
-.m-icon {
-  font-size: 32px;
-}
-
-.m-name {
-  font-size: 16px;
-  margin: 0;
-}
-
-.m-rec-lvl {
-  font-size: 12px;
-  color: #fb923c;
-  font-weight: 600;
-}
+.m-icon { font-size: 32px; }
+.m-name { font-size: 16px; margin: 0; }
+.m-rec-lvl { font-size: 12px; color: #fb923c; font-weight: 600; }
 
 .m-desc {
   font-size: 13px;
@@ -762,10 +847,7 @@ body {
   font-size: 13px;
 }
 
-.reward-land {
-  color: #34d399;
-  font-weight: 700;
-}
+.reward-land { color: #34d399; font-weight: 700; }
 
 .other-rewards {
   display: flex;
@@ -873,20 +955,9 @@ body {
   border: 2px solid #1e293b;
 }
 
-.node-icon {
-  font-size: 34px;
-}
-
-.node-name {
-  font-size: 16px;
-  margin: 0;
-}
-
-.node-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-}
+.node-icon { font-size: 34px; }
+.node-name { font-size: 16px; margin: 0; }
+.node-desc { font-size: 12px; color: var(--text-muted); margin: 0; }
 
 .node-hp-bar-wrapper {
   width: 100%;
@@ -938,9 +1009,7 @@ body {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 }
 
-.btn-mine:active {
-  transform: scale(0.97);
-}
+.btn-mine:active { transform: scale(0.97); }
 
 /* ==========================================================================
    6. Work & Logging View
@@ -983,14 +1052,9 @@ body {
   transform: translateY(-1px);
 }
 
-.btn-chop:active {
-  transform: scale(0.97);
-}
+.btn-chop:active { transform: scale(0.97); }
 
-.work-yield {
-  font-size: 13px;
-  color: var(--text-muted);
-}
+.work-yield { font-size: 13px; color: var(--text-muted); }
 
 .game-loop-guide-card {
   background: var(--bg-darker);
@@ -1031,23 +1095,10 @@ body {
   color: #374151;
 }
 
-.step-card h4 {
-  font-size: 14px;
-  margin: 0 0 6px;
-  color: #f1f5f9;
-}
+.step-card h4 { font-size: 14px; margin: 0 0 6px; color: #f1f5f9; }
+.step-card p { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.4; }
 
-.step-card p {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.guide-footer {
-  display: flex;
-  justify-content: flex-end;
-}
+.guide-footer { display: flex; justify-content: flex-end; }
 
 /* ==========================================================================
    7. Log Panel
@@ -1072,10 +1123,7 @@ body {
   padding-bottom: 8px;
 }
 
-.log-title {
-  font-weight: 700;
-  color: #cbd5e1;
-}
+.log-title { font-weight: 700; color: #cbd5e1; }
 
 .log-feed {
   max-height: 180px;
@@ -1095,30 +1143,17 @@ body {
   background: rgba(15, 23, 42, 0.4);
 }
 
-.log-time {
-  color: var(--text-dim);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.log-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
+.log-time { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+.log-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
 
 .log-badge-combat { background: #dc2626; color: white; }
 .log-badge-mine { background: #d97706; color: white; }
 .log-badge-build { background: #2563eb; color: white; }
 .log-badge-level { background: #10b981; color: white; }
+.log-badge-event { background: #9333ea; color: white; }
 .log-badge-info { background: #475569; color: white; }
 
-.log-text {
-  color: var(--text-main);
-  line-height: 1.4;
-}
+.log-text { color: var(--text-main); line-height: 1.4; }
 
 /* Footer */
 .game-footer {
@@ -1126,4 +1161,202 @@ body {
   font-size: 12px;
   color: var(--text-dim);
   padding: 10px 0;
+}
+
+/* ==========================================================================
+   8. Night Event Modal (Story & Threat Resolution)
+   ========================================================================== */
+
+.night-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 13, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.night-modal-card {
+  background: #111827;
+  border: 2px solid #374151;
+  border-radius: 20px;
+  max-width: 580px;
+  width: 100%;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  animation: modal-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-pop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.night-modal-card.is-success {
+  border-color: #059669;
+  box-shadow: 0 0 35px rgba(16, 185, 129, 0.25);
+}
+
+.night-modal-card.is-fail {
+  border-color: #dc2626;
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.25);
+}
+
+.night-modal-badge {
+  background: #1e1b4b;
+  border: 1px solid #4338ca;
+  color: #c7d2fe;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 9999px;
+}
+
+.night-event-icon-circle {
+  width: 72px;
+  height: 72px;
+  background: #1f2937;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  border: 2px solid #374151;
+}
+
+.night-event-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  color: #f8fafc;
+}
+
+.night-story-box {
+  background: #0b111d;
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.night-story-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  margin: 0;
+  text-align: left;
+}
+
+.night-result-box {
+  border-radius: var(--radius-md);
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.night-result-box.res-success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.night-result-box.res-fail {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.res-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.res-desc {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.changes-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.change-tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.tag-pos {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.tag-neg {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.next-warning-card {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.warning-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.warning-content {
+  font-size: 13px;
+  color: #fef3c7;
+  margin: 4px 0 0;
+}
+
+.btn-next-day {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  color: #0b111d;
+  font-size: 16px;
+  font-weight: 800;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35);
+  transition: transform 0.15s, opacity 0.2s;
+}
+
+.btn-next-day:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.btn-next-day:active {
+  transform: translateY(1px);
 }

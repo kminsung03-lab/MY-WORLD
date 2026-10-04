@@ -74,10 +74,32 @@ export interface GameLog {
   id: string
   timestamp: string
   text: string
-  type: 'info' | 'combat' | 'mine' | 'build' | 'level'
+  type: 'info' | 'combat' | 'mine' | 'build' | 'level' | 'event'
+}
+
+export interface DayState {
+  day: number
+  ap: number
+  maxAp: number
+  upcomingWarning: string
+}
+
+export interface NightEvent {
+  day: number
+  title: string
+  icon: string
+  storyText: string
+  resultText: string
+  success: boolean
+  resourceChanges?: Partial<Resources>
+  hpChange?: number
+  territoryChange?: number
+  nextWarning: string
 }
 
 export interface GameState {
+  dayState: DayState
+  currentNightEvent: NightEvent | null
   resources: Resources
   territory: Territory
   player: Player

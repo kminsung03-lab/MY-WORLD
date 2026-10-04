@@ -127,7 +127,7 @@ export const TownView: React.FC<TownViewProps> = ({
                     disabled={!canBuild}
                     onClick={() => onConstruct(b.id)}
                   >
-                    {b.level === 0 ? '🔨 건물 신축하기' : '⚡ 건물 증축하기'}
+                    {b.level === 0 ? '🔨 건물 신축 (⚡ 1 AP)' : '⚡ 건물 증축 (⚡ 1 AP)'}
                   </button>
                 )}
 

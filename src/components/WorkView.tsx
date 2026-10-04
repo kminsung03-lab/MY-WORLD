@@ -36,10 +36,10 @@ export const WorkView: React.FC<WorkViewProps> = ({
           className={`btn-chop ${isWorking ? 'chopping' : ''}`}
           onClick={handleWork}
         >
-          🪓 나무 벌목 및 목재 가공하기 (클릭)
+          🪓 나무 벌목 및 목재 가공 (⚡ 1 AP)
         </button>
         <span className="work-yield">
-          1회 작업 당: <strong>🪵 목재 +8~12개 &amp; 🪙 골드 +5 G</strong> 수령
+          1회 작업 당: <strong>🪵 목재 +12~15개 &amp; 🪙 골드 +8 G</strong> 수령
         </span>
       </div>
 

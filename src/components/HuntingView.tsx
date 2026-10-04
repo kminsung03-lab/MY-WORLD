@@ -86,7 +86,7 @@ export const HuntingView: React.FC<HuntingViewProps> = ({
                 disabled={!canFight}
                 onClick={() => onHunt(m.id)}
               >
-                {canFight ? `⚔️ [${m.name}] 토벌하여 땅 확보` : '체력 부족 (휴식 필요)'}
+                {canFight ? `⚔️ [${m.name}] 토벌 (⚡ 1 AP)` : '체력 부족 (휴식 필요)'}
               </button>
             </div>
           )

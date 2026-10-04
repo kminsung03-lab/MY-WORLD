@@ -87,7 +87,7 @@ export const MiningView: React.FC<MiningViewProps> = ({
                 className="btn-mine"
                 onClick={() => handleHit(node.id)}
               >
-                ⛏️ 힘껏 내리치기! (클릭)
+                ⛏️ 집중 채굴하기 (⚡ 1 AP)
               </button>
             </div>
           )

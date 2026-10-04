@@ -1,44 +1,79 @@
 import React from 'react'
-import type { Resources, Territory, Player } from '../types/game'
+import type { Resources, Territory, Player, DayState } from '../types/game'
 
 interface HeaderProps {
+  dayState: DayState
   resources: Resources
   territory: Territory
   player: Player
   onRest: () => void
+  onEndDay: () => void
   onReset: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  dayState,
   resources,
   territory,
   player,
   onRest,
+  onEndDay,
   onReset,
 }) => {
   const availableLand = territory.secured - territory.used
-  const landPercentage = territory.secured > 0 
-    ? Math.min(100, Math.round((territory.used / territory.secured) * 100))
-    : 0
+  const landPercentage =
+    territory.secured > 0
+      ? Math.min(100, Math.round((territory.used / territory.secured) * 100))
+      : 0
 
   const hpPercentage = Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100))
   const expPercentage = Math.max(0, Math.min(100, (player.exp / player.maxExp) * 100))
 
   return (
     <header className="header-panel">
-      {/* Top bar: Title and Quick Controls */}
+      {/* 1. Brand & Day / AP Row */}
       <div className="header-top">
         <div className="game-brand">
           <span className="brand-icon">⚔️</span>
           <div>
-            <h1 className="brand-title">MY-WORLD</h1>
-            <span className="brand-tag">마을 개척 &amp; 로그라이크 RPG</span>
+            <div className="brand-title-wrap">
+              <h1 className="brand-title">MY-WORLD</h1>
+              <span className="day-badge">☀️ Day {dayState.day}</span>
+            </div>
+            <span className="brand-tag">마을 개척 &amp; 턴제 생존 전략 RPG</span>
           </div>
+        </div>
+
+        {/* AP Tracker & End Day Action */}
+        <div className="day-control-box">
+          <div className="ap-tracker">
+            <span className="ap-label">⚡ 행동력 (AP)</span>
+            <div className="ap-pips">
+              {Array.from({ length: dayState.maxAp }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`ap-pip ${i < dayState.ap ? 'filled' : 'empty'}`}
+                />
+              ))}
+            </div>
+            <span className="ap-number">
+              {dayState.ap} / {dayState.maxAp} AP
+            </span>
+          </div>
+
+          <button
+            className={`btn-end-day ${dayState.ap === 0 ? 'pulse-ready' : ''}`}
+            onClick={onEndDay}
+            title="하루를 마무리하고 밤의 사건을 맞이합니다."
+          >
+            🌙 하루 마무리 (취침)
+            {dayState.ap === 0 && <span className="ap-zero-badge">준비됨</span>}
+          </button>
         </div>
 
         <div className="header-actions">
           <button className="btn-rest" onClick={onRest} title="식량 5개를 소모해 HP 완전 회복">
-            🛏️ 휴식 &amp; 치료 (HP 회복)
+            🛏️ 휴식 (HP 회복)
           </button>
           <button className="btn-reset" onClick={onReset} title="세이브 데이터 초기화">
             🔄 리셋
@@ -46,14 +81,23 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Territory Status (Crucial Game Core) */}
+      {/* 2. Upcoming Threat / Strategy Warning Strip */}
+      <div className="threat-hud-strip">
+        <span className="threat-hud-icon">🧭</span>
+        <div className="threat-hud-text">
+          <span className="threat-hud-label">예고된 사건:</span>
+          <span className="threat-hud-warning">{dayState.upcomingWarning}</span>
+        </div>
+      </div>
+
+      {/* 3. Territory Status Bar */}
       <div className="territory-banner">
         <div className="territory-header">
           <span className="territory-title">🗺️ 마을 영토 현황</span>
           <span className="territory-stats">
-            확보된 영토: <strong>{territory.secured} 구역</strong> | 사용 중: <strong>{territory.used}</strong> | 
+            확보된 영토: <strong>{territory.secured} 구역</strong> | 사용 중: <strong>{territory.used}</strong> |{' '}
             <span className={availableLand > 0 ? 'text-green' : 'text-red'}>
-              {' '}건설 가능 부지: <strong>{availableLand} 구역</strong>
+              건설 가능 부지: <strong>{availableLand} 구역</strong>
             </span>
           </span>
         </div>
@@ -65,14 +109,13 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         {availableLand <= 0 && (
           <div className="territory-alert">
-            ⚠️ 남은 부지가 없습니다! <strong>사냥터에서 몬스터를 토벌</strong>하여 새로운 땅을 개척하세요.
+            ⚠️ 남은 부지가 없습니다! <strong>사냥터에서 몬스터를 토벌</strong>하여 새로운 땅을 개척하세요. (1 AP 소모)
           </div>
         )}
       </div>
 
-      {/* Player Stats & Resources Grid */}
+      {/* 4. Player Stats & Resources Ribbon */}
       <div className="header-stats-grid">
-        {/* Player Profile */}
         <div className="player-stats-card">
           <div className="stat-row">
             <span className="player-level">Lv.{player.level} 모험가</span>
@@ -108,7 +151,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Resources Ribbon */}
         <div className="resources-ribbon">
           <div className="resource-pill">
             <span className="res-icon">🪙</span>

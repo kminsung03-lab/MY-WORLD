@@ -3,29 +3,43 @@ import type {
   GameState,
   GameLog,
   BuildingCost,
+  NightEvent,
 } from '../types/game'
 import {
   INITIAL_RESOURCES,
   INITIAL_TERRITORY,
   INITIAL_PLAYER,
   INITIAL_BUILDINGS,
+  INITIAL_DAY_STATE,
   MONSTERS,
   MINING_NODES,
 } from '../constants/gameData'
+import { generateNightEvent } from '../constants/storyEvents'
 
-const SAVE_KEY = 'my_world_game_save_v1'
+const SAVE_KEY = 'my_world_game_save_v2'
 
 export function useGameState() {
   const [gameState, setGameState] = useState<GameState>(() => {
     try {
       const saved = localStorage.getItem(SAVE_KEY)
       if (saved) {
-        return JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        return {
+          dayState: parsed.dayState || INITIAL_DAY_STATE,
+          currentNightEvent: parsed.currentNightEvent || null,
+          resources: parsed.resources || INITIAL_RESOURCES,
+          territory: parsed.territory || INITIAL_TERRITORY,
+          player: parsed.player || INITIAL_PLAYER,
+          buildings: parsed.buildings || INITIAL_BUILDINGS,
+          logs: parsed.logs || [],
+        }
       }
     } catch (e) {
       console.error('Failed to load save game', e)
     }
     return {
+      dayState: INITIAL_DAY_STATE,
+      currentNightEvent: null,
       resources: INITIAL_RESOURCES,
       territory: INITIAL_TERRITORY,
       player: INITIAL_PLAYER,
@@ -34,7 +48,7 @@ export function useGameState() {
         {
           id: 'init-1',
           timestamp: new Date().toLocaleTimeString(),
-          text: '🏰 MY-WORLD에 오신 것을 환영합니다! 사냥으로 영토를 넓히고 광산 자원으로 마을을 건설하세요.',
+          text: '🏰 MY-WORLD에 오신 것을 환영합니다! 행동력(AP)을 활용해 낮에는 개척하고, 밤에는 사건을 대비하세요.',
           type: 'info',
         },
       ],
@@ -68,9 +82,21 @@ export function useGameState() {
     }
     setGameState((prev) => ({
       ...prev,
-      logs: [newLog, ...prev.logs.slice(0, 49)], // Keep up to 50 logs
+      logs: [newLog, ...prev.logs.slice(0, 49)],
     }))
   }, [])
+
+  // AP check & consume
+  const consumeAp = (cost = 1): boolean => {
+    if (gameState.dayState.ap < cost) {
+      addLog(
+        '⚡ 오늘의 행동력이 소진되었습니다! [🌙 하루 마무리하기]를 눌러 밤 결산 및 취침을 진행하세요.',
+        'info'
+      )
+      return false
+    }
+    return true
+  }
 
   // Check and apply level-up
   const checkLevelUp = (currExp: number, currMaxExp: number, currLevel: number) => {
@@ -89,8 +115,10 @@ export function useGameState() {
     return { exp, maxExp, level, leveledUp }
   }
 
-  // 1. Hunt Monster Action (Clearing territory)
+  // 1. Hunt Monster Action (Consumes 1 AP)
   const huntMonster = (monsterId: string) => {
+    if (!consumeAp(1)) return
+
     const monster = MONSTERS.find((m) => m.id === monsterId)
     if (!monster) return
 
@@ -104,17 +132,15 @@ export function useGameState() {
     const monsterTurnsToDie = Math.ceil(monster.hp / damageDealt)
 
     const rawMonsterDmg = Math.max(1, monster.attack - gameState.player.defense)
-    // Wall building reduction
     const wallLevel = gameState.buildings.wall?.level || 0
     const wallReduction = Math.min(0.5, wallLevel * 0.08)
     const effectiveMonsterDmg = Math.max(1, Math.round(rawMonsterDmg * (1 - wallReduction)))
 
     const damageTaken = Math.min(
-      gameState.player.hp - 1, // Keep at least 1 HP
+      gameState.player.hp - 1,
       effectiveMonsterDmg * (monsterTurnsToDie - 1)
     )
 
-    // Town hall bonus
     const townHallBonus = 1 + (gameState.buildings.townHall?.level || 0) * 0.15
     const goldEarned = Math.round(monster.goldReward * townHallBonus)
     const foodEarned = Math.round(monster.foodReward * townHallBonus)
@@ -142,6 +168,10 @@ export function useGameState() {
 
       return {
         ...prev,
+        dayState: {
+          ...prev.dayState,
+          ap: prev.dayState.ap - 1,
+        },
         player: updatedPlayer,
         resources: {
           ...prev.resources,
@@ -156,31 +186,37 @@ export function useGameState() {
     })
 
     addLog(
-      `⚔️ [${monster.name}] 토벌 성공! 영토 +${monster.territoryReward}구역 개척 완료! (피해 -${damageTaken} HP, 획득: 🪙+${goldEarned}, 🍖+${foodEarned})`,
+      `⚔️ (1 AP 소모) [${monster.name}] 토벌 성공! 영토 +${monster.territoryReward}구역 개척 완료! (피해 -${damageTaken} HP, 획득: 🪙+${goldEarned}, 🍖+${foodEarned})`,
       'combat'
     )
   }
 
-  // 2. Mine Action (Acquiring building materials)
+  // 2. Mine Action (Consumes 1 AP, delivers heavy swing)
   const mineRock = (nodeId: string) => {
+    if (!consumeAp(1)) return
+
     const node = MINING_NODES.find((n) => n.id === nodeId)
     if (!node) return
 
     const currentHp = activeNodes[nodeId] ?? node.hp
-    const hitDamage = Math.max(10, gameState.player.miningPower * 8)
+    const hitDamage = Math.max(25, gameState.player.miningPower * 18)
     const newHp = currentHp - hitDamage
 
-    if (newHp <= 0) {
-      // Node broken! Collect rewards
-      const townHallBonus = 1 + (gameState.buildings.townHall?.level || 0) * 0.15
-      const storageBonus = (gameState.buildings.storage?.level || 0) * 0.1
+    const townHallBonus = 1 + (gameState.buildings.townHall?.level || 0) * 0.15
+    const storageBonus = (gameState.buildings.storage?.level || 0) * 0.1
 
+    if (newHp <= 0) {
+      // Node broken! Full jackpot rewards
       const stoneGain = Math.round(node.stoneReward * (townHallBonus + storageBonus))
       const ironGain = Math.round(node.ironReward * (townHallBonus + storageBonus))
       const goldGain = Math.round(node.goldReward * townHallBonus)
 
       setGameState((prev) => ({
         ...prev,
+        dayState: {
+          ...prev.dayState,
+          ap: prev.dayState.ap - 1,
+        },
         resources: {
           ...prev.resources,
           stone: prev.resources.stone + stoneGain,
@@ -191,37 +227,56 @@ export function useGameState() {
 
       setActiveNodes((prev) => ({
         ...prev,
-        [nodeId]: node.maxHp, // Respawn node
+        [nodeId]: node.maxHp,
       }))
 
       addLog(
-        `⛏️ [${node.name}] 채굴 완파! 자재 획득: 🪨+${stoneGain} 석재, ⛏️+${ironGain} 철광석, 🪙+${goldGain} 골드`,
+        `⛏️ (1 AP 소모) [${node.name}] 채굴 완파! 대량 자재 획득: 🪨+${stoneGain} 석재, ⛏️+${ironGain} 철광석, 🪙+${goldGain} 골드`,
         'mine'
       )
     } else {
+      // Standard heavy strike yield
+      const baseStone = Math.round(5 * (townHallBonus + storageBonus))
+      const baseIron = Math.round(2 * (townHallBonus + storageBonus))
+
       setActiveNodes((prev) => ({
         ...prev,
         [nodeId]: newHp,
       }))
-      // Minor gather per hit
-      const minorStone = 1
+
       setGameState((prev) => ({
         ...prev,
+        dayState: {
+          ...prev.dayState,
+          ap: prev.dayState.ap - 1,
+        },
         resources: {
           ...prev.resources,
-          stone: prev.resources.stone + minorStone,
+          stone: prev.resources.stone + baseStone,
+          iron: prev.resources.iron + baseIron,
         },
       }))
+
+      addLog(
+        `⛏️ (1 AP 소모) [${node.name}] 집중 채굴 완료! 🪨+${baseStone} 석재, ⛏️+${baseIron} 철광석 획득 (내구도: ${newHp}/${node.maxHp})`,
+        'mine'
+      )
     }
   }
 
-  // 3. Timber Logging / Construction Labor (Wood and Gold)
+  // 3. Timber Logging / Labor (Consumes 1 AP)
   const workLogging = () => {
-    const woodGain = 8 + (gameState.buildings.storage?.level || 0) * 2
-    const goldGain = 5
+    if (!consumeAp(1)) return
+
+    const woodGain = 12 + (gameState.buildings.storage?.level || 0) * 3
+    const goldGain = 8
 
     setGameState((prev) => ({
       ...prev,
+      dayState: {
+        ...prev.dayState,
+        ap: prev.dayState.ap - 1,
+      },
       resources: {
         ...prev.resources,
         wood: prev.resources.wood + woodGain,
@@ -229,10 +284,10 @@ export function useGameState() {
       },
     }))
 
-    addLog(`🪓 원목 벌목 및 건축 노동 완료! 🪵+${woodGain} 목재, 🪙+${goldGain} 일당 수령`, 'info')
+    addLog(`🪓 (1 AP 소모) 원목 벌목 및 가공 완료! 🪵+${woodGain} 목재, 🪙+${goldGain} 일당 수령`, 'info')
   }
 
-  // 4. Rest in Town (HP recovery)
+  // 4. Rest in Town
   const restAtTown = () => {
     const maxHp = gameState.player.maxHp
     if (gameState.player.hp >= maxHp) {
@@ -242,8 +297,7 @@ export function useGameState() {
 
     const foodCost = 5
     if (gameState.resources.food < foodCost) {
-      // Minor free rest
-      const heal = 20
+      const heal = 25
       setGameState((prev) => ({
         ...prev,
         player: {
@@ -251,9 +305,8 @@ export function useGameState() {
           hp: Math.min(maxHp, prev.player.hp + heal),
         },
       }))
-      addLog(`💤 가벼운 휴식으로 HP +${heal}을 회복했습니다. (식량이 있으면 완전 회복 가능)`, 'info')
+      addLog(`💤 가벼운 휴식으로 HP +${heal}을 회복했습니다.`, 'info')
     } else {
-      // Full heal with food
       setGameState((prev) => ({
         ...prev,
         resources: {
@@ -269,7 +322,7 @@ export function useGameState() {
     }
   }
 
-  // 5. Construct / Upgrade Building
+  // 5. Construct / Upgrade Building (Consumes 1 AP)
   const getBuildingCost = (buildingId: string): BuildingCost => {
     const b = gameState.buildings[buildingId]
     if (!b) return { gold: 0, wood: 0, stone: 0, iron: 0 }
@@ -283,6 +336,8 @@ export function useGameState() {
   }
 
   const constructBuilding = (buildingId: string) => {
+    if (!consumeAp(1)) return
+
     const b = gameState.buildings[buildingId]
     if (!b) return
 
@@ -291,17 +346,15 @@ export function useGameState() {
       return
     }
 
-    // Check Territory land availability!
     const availableLand = gameState.territory.secured - gameState.territory.used
     if (availableLand < b.landCost) {
       addLog(
-        `🚫 [부지 부족] 건설에 ${b.landCost}구역이 필요하지만, 남은 부지는 ${availableLand}구역뿐입니다! 사냥터에서 몬스터를 토벌하여 영토를 넓히세요.`,
+        `🚫 [부지 부족] 건설에 ${b.landCost}구역이 필요하지만 남은 부지는 ${availableLand}구역뿐입니다! 사냥터에서 몬스터를 토벌하세요.`,
         'build'
       )
       return
     }
 
-    // Check Resource costs
     const cost = getBuildingCost(buildingId)
     const { resources } = gameState
 
@@ -318,15 +371,13 @@ export function useGameState() {
       return
     }
 
-    // Deduct and construct
     setGameState((prev) => {
       const nextLevel = prev.buildings[buildingId].level + 1
 
-      // Passive bonuses applied right away
       let updatedPlayer = { ...prev.player }
       if (buildingId === 'shelter') {
         updatedPlayer.maxHp += 25
-        updatedPlayer.hp = updatedPlayer.maxHp // Free heal upon upgrading shelter
+        updatedPlayer.hp = updatedPlayer.maxHp
       } else if (buildingId === 'blacksmith') {
         updatedPlayer.attack += 6
         updatedPlayer.miningPower += 2
@@ -336,6 +387,10 @@ export function useGameState() {
 
       return {
         ...prev,
+        dayState: {
+          ...prev.dayState,
+          ap: prev.dayState.ap - 1,
+        },
         resources: {
           ...prev.resources,
           gold: prev.resources.gold - cost.gold,
@@ -359,8 +414,76 @@ export function useGameState() {
     })
 
     addLog(
-      `🎉 [${b.name}] 증축 완료 (Lv.${b.level + 1})! 영토 ${b.landCost}구역 사용됨. 효과: ${b.benefitText}`,
+      `🎉 (1 AP 소모) [${b.name}] 증축 완료 (Lv.${b.level + 1})! 영토 ${b.landCost}구역 사용됨. 효과: ${b.benefitText}`,
       'build'
+    )
+  }
+
+  // 6. End Day (Night Settlement & Story Event Trigger)
+  const endDay = () => {
+    const event: NightEvent = generateNightEvent(
+      gameState.dayState.day,
+      gameState.buildings,
+      gameState.player,
+      gameState.resources
+    )
+
+    setGameState((prev) => ({
+      ...prev,
+      currentNightEvent: event,
+    }))
+
+    addLog(`🌙 Day ${gameState.dayState.day}의 하루를 마무리하고 밤의 사건을 맞이합니다...`, 'event')
+  }
+
+  // 7. Start Next Day (Apply event results & Recharge AP)
+  const startNextDay = () => {
+    const event = gameState.currentNightEvent
+    if (!event) return
+
+    setGameState((prev) => {
+      const nextDay = prev.dayState.day + 1
+      const resChanges = event.resourceChanges || {}
+
+      const updatedResources = {
+        gold: Math.max(0, prev.resources.gold + (resChanges.gold || 0)),
+        wood: Math.max(0, prev.resources.wood + (resChanges.wood || 0)),
+        stone: Math.max(0, prev.resources.stone + (resChanges.stone || 0)),
+        iron: Math.max(0, prev.resources.iron + (resChanges.iron || 0)),
+        food: Math.max(0, prev.resources.food + (resChanges.food || 0)),
+      }
+
+      const updatedHp = Math.max(
+        1,
+        Math.min(prev.player.maxHp, prev.player.hp + (event.hpChange || 0))
+      )
+
+      const updatedTerritory = {
+        ...prev.territory,
+        secured: prev.territory.secured + (event.territoryChange || 0),
+      }
+
+      return {
+        ...prev,
+        dayState: {
+          day: nextDay,
+          ap: prev.dayState.maxAp, // Recharged to max AP
+          maxAp: prev.dayState.maxAp,
+          upcomingWarning: event.nextWarning,
+        },
+        currentNightEvent: null,
+        resources: updatedResources,
+        player: {
+          ...prev.player,
+          hp: updatedHp,
+        },
+        territory: updatedTerritory,
+      }
+    })
+
+    addLog(
+      `☀️ Day ${gameState.dayState.day + 1}의 아침이 밝았습니다! ⚡ 행동력 5 AP가 충전되었습니다.`,
+      'info'
     )
   }
 
@@ -369,6 +492,8 @@ export function useGameState() {
     if (window.confirm('정말 게임을 초기화하시겠습니까?')) {
       localStorage.removeItem(SAVE_KEY)
       setGameState({
+        dayState: INITIAL_DAY_STATE,
+        currentNightEvent: null,
         resources: INITIAL_RESOURCES,
         territory: INITIAL_TERRITORY,
         player: INITIAL_PLAYER,
@@ -394,6 +519,8 @@ export function useGameState() {
     restAtTown,
     constructBuilding,
     getBuildingCost,
+    endDay,
+    startNextDay,
     resetSave,
   }
 }

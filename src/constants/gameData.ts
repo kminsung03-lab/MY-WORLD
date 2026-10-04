@@ -1,4 +1,11 @@
-import type { Building, Monster, MiningNode, Player, Resources, Territory } from '../types/game'
+import type { Building, Monster, MiningNode, Player, Resources, Territory, DayState } from '../types/game'
+
+export const INITIAL_DAY_STATE: DayState = {
+  day: 1,
+  ap: 5,
+  maxAp: 5,
+  upcomingWarning: 'Day 2 밤: 굶주린 숲늑대 무리의 야간 기습 예고! (방어 목책 Lv.1 권장)',
+}
 
 export const INITIAL_RESOURCES: Resources = {
   gold: 50,

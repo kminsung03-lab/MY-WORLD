@@ -6,6 +6,7 @@ import { HuntingView } from './components/HuntingView'
 import { MiningView } from './components/MiningView'
 import { WorkView } from './components/WorkView'
 import { LogView } from './components/LogView'
+import { NightEventModal } from './components/NightEventModal'
 import './App.css'
 
 type TabType = 'town' | 'hunt' | 'mine' | 'work'
@@ -21,6 +22,8 @@ function App() {
     restAtTown,
     constructBuilding,
     getBuildingCost,
+    endDay,
+    startNextDay,
     resetSave,
   } = useGameState()
 
@@ -28,12 +31,14 @@ function App() {
 
   return (
     <div className="game-app">
-      {/* 1. Universal Top Header (Territory, Player Stats, Resources) */}
+      {/* 1. Universal Top Header (Day, AP, Threat HUD, Territory, Player, Resources) */}
       <Header
+        dayState={gameState.dayState}
         resources={gameState.resources}
         territory={gameState.territory}
         player={gameState.player}
         onRest={restAtTown}
+        onEndDay={endDay}
         onReset={resetSave}
       />
 
@@ -52,7 +57,7 @@ function App() {
           onClick={() => setActiveTab('hunt')}
         >
           🌲 사냥터 (영토 개척)
-          <span className="tab-pill-hunt">땅 확보</span>
+          <span className="tab-pill-hunt">땅 확보 (1 AP)</span>
         </button>
 
         <button
@@ -60,7 +65,7 @@ function App() {
           onClick={() => setActiveTab('mine')}
         >
           ⛏️ 채석장 &amp; 광산
-          <span className="tab-pill-mine">석재·철</span>
+          <span className="tab-pill-mine">석재·철 (1 AP)</span>
         </button>
 
         <button
@@ -68,7 +73,7 @@ function App() {
           onClick={() => setActiveTab('work')}
         >
           🪵 벌목 &amp; 노동
-          <span className="tab-pill-work">목재·일당</span>
+          <span className="tab-pill-work">목재·일당 (1 AP)</span>
         </button>
       </nav>
 
@@ -118,6 +123,14 @@ function App() {
       <footer className="game-footer">
         <span>💾 로컬스토리지 자동 저장 활성화 | ⚡ Cloudflare Pages &amp; Workers 호스팅</span>
       </footer>
+
+      {/* 6. Night Story & Event Modal */}
+      {gameState.currentNightEvent && (
+        <NightEventModal
+          event={gameState.currentNightEvent}
+          onStartNextDay={startNextDay}
+        />
+      )}
     </div>
   )
 }
