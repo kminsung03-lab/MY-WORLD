@@ -1,0 +1,185 @@
+import type { Building, Monster, MiningNode, Player, Resources, Territory } from '../types/game'
+
+export const INITIAL_RESOURCES: Resources = {
+  gold: 50,
+  wood: 30,
+  stone: 20,
+  iron: 5,
+  food: 20,
+}
+
+export const INITIAL_TERRITORY: Territory = {
+  secured: 5, // Starts with 5 secured plots
+  used: 0,
+}
+
+export const INITIAL_PLAYER: Player = {
+  level: 1,
+  exp: 0,
+  maxExp: 50,
+  hp: 100,
+  maxHp: 100,
+  attack: 12,
+  defense: 4,
+  miningPower: 2,
+}
+
+export const INITIAL_BUILDINGS: Record<string, Building> = {
+  townHall: {
+    id: 'townHall',
+    name: '마을 회관',
+    icon: '🏛️',
+    description: '마을의 행정 중심지. 마을 등급을 올리고 정착민을 이끕니다.',
+    level: 0,
+    maxLevel: 5,
+    landCost: 2,
+    baseCost: { gold: 60, wood: 40, stone: 30, iron: 10 },
+    benefitText: '전체 자원 획득량 +15% 증가',
+  },
+  shelter: {
+    id: 'shelter',
+    name: '모험가 주택',
+    icon: '🏡',
+    description: '휴식과 정착을 위한 안식처. 최대 체력과 회복 효율을 높여줍니다.',
+    level: 0,
+    maxLevel: 10,
+    landCost: 1,
+    baseCost: { gold: 30, wood: 25, stone: 15, iron: 0 },
+    benefitText: '최대 HP +25 및 휴식 시 완전 회복',
+  },
+  blacksmith: {
+    id: 'blacksmith',
+    name: '대장간',
+    icon: '⚒️',
+    description: '철과 광물을 제련하여 무기와 채광 도구를 단련합니다.',
+    level: 0,
+    maxLevel: 5,
+    landCost: 2,
+    baseCost: { gold: 50, wood: 20, stone: 40, iron: 15 },
+    benefitText: '공격력 +6 및 채광 파워 +2',
+  },
+  storage: {
+    id: 'storage',
+    name: '자재 창고',
+    icon: '📦',
+    description: '채굴한 광석과 목재를 안전하게 비축하는 물류 보관소.',
+    level: 0,
+    maxLevel: 5,
+    landCost: 1,
+    baseCost: { gold: 40, wood: 35, stone: 25, iron: 5 },
+    benefitText: '노동/채광 시 추가 자원 드랍 확률 +20%',
+  },
+  wall: {
+    id: 'wall',
+    name: '방어 목책 & 해자',
+    icon: '🛡️',
+    description: '몬스터의 침입을 막고 확보된 영토의 안전을 보장합니다.',
+    level: 0,
+    maxLevel: 5,
+    landCost: 2,
+    baseCost: { gold: 45, wood: 50, stone: 35, iron: 5 },
+    benefitText: '방어력 +5 및 사냥 피격 피해 20% 감소',
+  },
+}
+
+export const MONSTERS: Monster[] = [
+  {
+    id: 'slime',
+    name: '초록 슬라임',
+    icon: '🟢',
+    description: '마을 주변 수풀을 점령한 약한 점액 생물. 처치하여 안전 부지를 개척하세요.',
+    hp: 40,
+    maxHp: 40,
+    attack: 6,
+    defense: 1,
+    expReward: 15,
+    goldReward: 15,
+    territoryReward: 1, // +1 Land
+    foodReward: 5,
+    recommendedLevel: 1,
+  },
+  {
+    id: 'wolf',
+    name: '굶주린 숲늑대',
+    icon: '🐺',
+    description: '외곽 숲길을 배회하며 개척민을 위협하는 맹수. 처치 시 고기와 부지를 얻습니다.',
+    hp: 75,
+    maxHp: 75,
+    attack: 12,
+    defense: 3,
+    expReward: 30,
+    goldReward: 25,
+    territoryReward: 2, // +2 Land
+    foodReward: 12,
+    recommendedLevel: 2,
+  },
+  {
+    id: 'goblin',
+    name: '고블린 척후병',
+    icon: '👺',
+    description: '마을 근처 바위산을 점거하고 요새를 짓고 있는 고블린 무리.',
+    hp: 120,
+    maxHp: 120,
+    attack: 18,
+    defense: 6,
+    expReward: 55,
+    goldReward: 45,
+    territoryReward: 3, // +3 Land
+    foodReward: 8,
+    recommendedLevel: 3,
+  },
+  {
+    id: 'orc',
+    name: '오크 벌목꾼',
+    icon: '👹',
+    description: '원시림을 무단 점거한 흉폭한 오크 전사. 강력한 도끼를 휘두릅니다.',
+    hp: 210,
+    maxHp: 210,
+    attack: 28,
+    defense: 10,
+    expReward: 90,
+    goldReward: 80,
+    territoryReward: 5, // +5 Land
+    foodReward: 20,
+    recommendedLevel: 4,
+  },
+]
+
+export const MINING_NODES: MiningNode[] = [
+  {
+    id: 'granite',
+    name: '단단한 화강암',
+    icon: '🪨',
+    description: '기본적인 건축 자재로 쓰이는 거친 바위 암석.',
+    hp: 50,
+    maxHp: 50,
+    stoneReward: 15,
+    ironReward: 2,
+    goldReward: 5,
+    reqMiningPower: 1,
+  },
+  {
+    id: 'iron_vein',
+    name: '고순도 철광맥',
+    icon: '⛏️',
+    description: '건물 골조와 대장간 제련에 필수적인 은빛 철광석이 섞인 광맥.',
+    hp: 90,
+    maxHp: 90,
+    stoneReward: 10,
+    ironReward: 12,
+    goldReward: 15,
+    reqMiningPower: 3,
+  },
+  {
+    id: 'gold_vein',
+    name: '반짝이는 황금맥',
+    icon: '✨',
+    description: '깊은 갱도에서 발견된 귀한 금빛 광맥. 대량의 자금을 안겨줍니다.',
+    hp: 140,
+    maxHp: 140,
+    stoneReward: 8,
+    ironReward: 6,
+    goldReward: 60,
+    reqMiningPower: 5,
+  },
+]
