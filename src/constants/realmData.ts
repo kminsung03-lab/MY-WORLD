@@ -132,6 +132,17 @@ export const POLICIES: PolicyDefinition[] = [
   },
 ]
 
+export const DOCTRINE_LABELS: Record<Doctrine, string> = {
+  unset: '노선 미결정',
+  stewardship: '질서의 길',
+  commerce: '번영의 길',
+  military: '철혈의 길',
+}
+
+export function calculateArmyPower(soldiers: number, levies: number, hasStandingGuard: boolean): number {
+  return Math.round(soldiers * (hasStandingGuard ? 2.75 : 2.2) + levies * 0.65)
+}
+
 export const INITIAL_REALM_STATE: RealmState = {
   year: 731,
   month: 3,

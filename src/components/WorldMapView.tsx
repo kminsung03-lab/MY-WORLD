@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DOCTRINE_LABELS, calculateArmyPower } from '../constants/realmData'
 import type { GameState } from '../types/game'
 import type { Nation, Province } from '../types/worldMap'
 import {
@@ -9,12 +10,15 @@ import {
   NATIONAL_BORDERS,
   NATION_LABEL_POINTS,
   NATIONS,
+  NATION_TO_NEIGHBOR_MAP,
   PROVINCES,
   isPointInPolygon,
 } from '../constants/worldData'
+import type { RealmHandle } from '../hooks/useRealmState'
 
 interface WorldMapViewProps {
   gameState: GameState
+  realm: RealmHandle
   onReturnToTown: () => void
 }
 
@@ -34,7 +38,7 @@ function findProvinceAt(x: number, y: number) {
   ) || null
 }
 
-export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, onReturnToTown }) => {
+export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, onReturnToTown }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const dragMovedRef = useRef(false)
@@ -47,6 +51,19 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, onReturnT
   const [selectedProvince, setSelectedProvince] = useState<Province>(playerFief)
   const [hoveredProvince, setHoveredProvince] = useState<Province | null>(null)
   const selectedNation = NATIONS[selectedProvince.nationId]
+
+  const { state: realmState, monthlyProjection } = realm
+  const armyPower = useMemo(
+    () => calculateArmyPower(realmState.soldiers, realmState.levies, realmState.policies.includes('standing_guard')),
+    [realmState.soldiers, realmState.levies, realmState.policies],
+  )
+  const activeTrades = monthlyProjection.activeTrades
+  const annexedCount = realmState.neighbors.filter((neighbor) => neighbor.annexed).length
+
+  const mappedNeighborId = NATION_TO_NEIGHBOR_MAP[selectedNation.id]
+  const matchedNeighbor = mappedNeighborId
+    ? realmState.neighbors.find((neighbor) => neighbor.id === mappedNeighborId)
+    : undefined
 
   const fitMap = useCallback(() => {
     const element = containerRef.current
@@ -314,6 +331,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, onReturnT
           </div>
         </div>
         <div className="map-controls">
+          <button className="btn-map-control btn-return-realm" onClick={onReturnToTown}>👑 영지 경영으로 복귀</button>
           <button className="btn-map-control focus-btn" onClick={() => centerOnPoint(playerFief.center[0], playerFief.center[1])}>🎯 내 영지</button>
           <button className="btn-map-control" onClick={() => setZoom((value) => Math.min(2.6, value * 1.2))}>＋ 확대</button>
           <button className="btn-map-control" onClick={() => setZoom((value) => Math.max(.28, value * .82))}>－ 축소</button>
@@ -362,20 +380,69 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, onReturnT
             <div className="specialty-box"><span className="spec-label">주요 산물</span><span className="spec-val">{selectedProvince.specialty}</span></div>
             {selectedProvince.isPlayerFief && (
               <div className="player-live-box">
-                <h4>MY-WORLD 실시간 현황</h4>
-                <div className="player-live-grid">
-                  <div><span>영토</span><strong>{gameState.territory.secured}</strong></div>
-                  <div><span>방벽</span><strong>Lv.{gameState.buildings.wall?.level || 0}</strong></div>
-                  <div><span>공격</span><strong>{gameState.player.attack}</strong></div>
-                  <div><span>방어</span><strong>{gameState.player.defense}</strong></div>
+                <div className="player-live-top-row">
+                  <h4>👑 MY-WORLD 통치령 현황</h4>
+                  <span className="player-live-date">{realmState.year}년 {realmState.month}월</span>
                 </div>
-                <button className="btn-manage-town" onClick={onReturnToTown}>내 영지 관리하기</button>
+
+                <div className="player-live-strategy-grid">
+                  <div className="strategy-stat-full">
+                    <span className="stat-label">선택 노선</span>
+                    <strong className="stat-val doctrine-badge">
+                      {DOCTRINE_LABELS[realmState.doctrine]}
+                    </strong>
+                  </div>
+
+                  <div className="strategy-stat-row">
+                    <div className="strategy-stat-cell">
+                      <span className="stat-label">국고 / 식량</span>
+                      <strong className="stat-val">
+                        🪙 {realmState.resources.treasury} <span className="stat-divider">/</span> 🌾 {realmState.resources.grain}
+                      </strong>
+                    </div>
+                    <div className="strategy-stat-cell">
+                      <span className="stat-label">안정도 / 자치도</span>
+                      <strong className="stat-val">
+                        ⚜️ {realmState.stability}% <span className="stat-divider">/</span> 🕊️ {realmState.autonomy}%
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="strategy-stat-full">
+                    <span className="stat-label">군사력 (상비 / 징집 / 전투력)</span>
+                    <strong className="stat-val">
+                      ⚔️ 상비 {realmState.soldiers} · 🛡️ 징집 {realmState.levies} <span className="stat-power-tag">전투력 {armyPower}</span>
+                    </strong>
+                  </div>
+
+                  <div className="strategy-stat-row">
+                    <div className="strategy-stat-cell">
+                      <span className="stat-label">교역로 수</span>
+                      <strong className="stat-val text-amber">⛵ {activeTrades}개 활성</strong>
+                    </div>
+                    <div className="strategy-stat-cell">
+                      <span className="stat-label">병합 수</span>
+                      <strong className="stat-val text-emerald">🚩 {annexedCount}곳 병합</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="player-local-summary">
+                  <span>마을 개척: 영토 {gameState.territory.secured}부지 · 방벽 Lv.{gameState.buildings.wall?.level || 0}</span>
+                </div>
+
+                <button className="btn-manage-town" onClick={onReturnToTown}>
+                  👑 영지 경영으로 복귀
+                </button>
               </div>
             )}
           </div>
 
           <div className="nation-detail-card">
-            <div className="inspector-header"><span className="atlas-kicker">소속 세력</span><span className="nation-relation-badge">{selectedNation.relationLabel}</span></div>
+            <div className="inspector-header">
+              <span className="atlas-kicker">소속 세력</span>
+              <span className="nation-relation-badge">{selectedNation.relationLabel}</span>
+            </div>
             <h3 className="nation-title" style={{ color: selectedNation.borderHighlightColor }}>{selectedNation.emblem} {selectedNation.name}</h3>
             <p className="nation-description">{selectedNation.description}</p>
             <div className="nation-meta-list">
@@ -385,6 +452,51 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, onReturnT
               <div className="meta-item"><span className="meta-k">군사</span><span className="meta-v">{selectedNation.militaryPower}</span></div>
               <div className="meta-item"><span className="meta-k">경제</span><span className="meta-v">{selectedNation.economyPower}</span></div>
             </div>
+
+            {matchedNeighbor ? (
+              <div className="strategic-neighbor-box">
+                <div className="strategic-neighbor-header">
+                  <span className="strategic-subkicker">변경백령 외교 정보</span>
+                  <span className={`neighbor-status-pill ${matchedNeighbor.annexed ? 'annexed' : matchedNeighbor.claim ? 'claim' : matchedNeighbor.tradeActive ? 'trade' : ''}`}>
+                    {matchedNeighbor.annexed ? '🚩 병합됨' : matchedNeighbor.claim ? '⚔️ 명분 보유' : matchedNeighbor.tradeActive ? '⛵ 교역 중' : matchedNeighbor.attitude}
+                  </span>
+                </div>
+                <div className="strategic-neighbor-name">
+                  {matchedNeighbor.icon} {matchedNeighbor.name} <small>({matchedNeighbor.title})</small>
+                </div>
+                <div className="strategic-neighbor-details">
+                  <div className="neighbor-row">
+                    <span className="neighbor-k">현재 관계</span>
+                    <span className={`neighbor-v ${matchedNeighbor.relation >= 0 ? 'text-good' : 'text-danger'}`}>
+                      {matchedNeighbor.relation >= 0 ? `+${matchedNeighbor.relation}` : matchedNeighbor.relation} ({matchedNeighbor.attitude})
+                    </span>
+                  </div>
+                  <div className="neighbor-row">
+                    <span className="neighbor-k">교역 상태</span>
+                    <span className="neighbor-v">
+                      {matchedNeighbor.tradeActive ? '✅ 교역로 개설됨 (월간 수입 기여)' : '❌ 미체결'}
+                    </span>
+                  </div>
+                  <div className="neighbor-row">
+                    <span className="neighbor-k">명분 상태</span>
+                    <span className="neighbor-v">
+                      {matchedNeighbor.claim ? '⚔️ 영유권 명분 확보 (출병 가능)' : '⚪ 명분 없음'}
+                    </span>
+                  </div>
+                  <div className="neighbor-row">
+                    <span className="neighbor-k">병합 상태</span>
+                    <span className="neighbor-v">
+                      {matchedNeighbor.annexed ? '🚩 통치령에 병합됨 (점령 완료)' : '🛡️ 독립 세력'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="strategic-neighbor-remote">
+                <div className="remote-status-title">🌐 현재 직접 이해관계 없음</div>
+                <p className="remote-status-desc">에르덴 변경백령과 직접 국경을 접하지 않거나 상설 외교 사절이 개설되지 않은 대륙 세력입니다.</p>
+              </div>
+            )}
           </div>
         </aside>
       </div>

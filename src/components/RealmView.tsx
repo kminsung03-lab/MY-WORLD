@@ -1,16 +1,11 @@
 import { useMemo, useState } from 'react'
-import { INDUSTRIES, POLICIES } from '../constants/realmData'
-import { useRealmState } from '../hooks/useRealmState'
-import type { Doctrine, IndustryId, PolicyId } from '../types/realm'
+import { DOCTRINE_LABELS, INDUSTRIES, POLICIES, calculateArmyPower } from '../constants/realmData'
+import type { RealmHandle } from '../hooks/useRealmState'
+import type { IndustryId, PolicyId } from '../types/realm'
 
 type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy'
 
-const doctrineLabels: Record<Doctrine, string> = {
-  unset: '노선 미결정',
-  stewardship: '질서의 길',
-  commerce: '번영의 길',
-  military: '철혈의 길',
-}
+const doctrineLabels = DOCTRINE_LABELS
 
 const capacityLabels = {
   administration: '행정력',
@@ -20,7 +15,13 @@ const capacityLabels = {
 
 const signed = (value: number) => `${value >= 0 ? '+' : ''}${value}`
 
-export function RealmView({ onOpenMap, onOpenLocal }: { onOpenMap: () => void; onOpenLocal: () => void }) {
+export interface RealmViewProps {
+  realm: RealmHandle
+  onOpenMap: () => void
+  onOpenLocal: () => void
+}
+
+export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
   const [tab, setTab] = useState<RealmTab>('overview')
   const {
     state,
@@ -33,11 +34,11 @@ export function RealmView({ onOpenMap, onOpenLocal }: { onOpenMap: () => void; o
     launchCampaign,
     advanceMonth,
     resetRealm,
-  } = useRealmState()
+  } = realm
 
   const armyPower = useMemo(
-    () => Math.round(state.soldiers * (state.policies.includes('standing_guard') ? 2.75 : 2.2) + state.levies * 0.65),
-    [state],
+    () => calculateArmyPower(state.soldiers, state.levies, state.policies.includes('standing_guard')),
+    [state.soldiers, state.levies, state.policies],
   )
   const annexedCount = state.neighbors.filter((neighbor) => neighbor.annexed).length
 

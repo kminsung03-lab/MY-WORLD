@@ -243,3 +243,5 @@ export function useRealmState() {
     resetRealm,
   }
 }
+
+export type RealmHandle = ReturnType<typeof useRealmState>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useGameState } from './hooks/useGameState'
+import { useRealmState } from './hooks/useRealmState'
 import { Header } from './components/Header'
 import { TownView } from './components/TownView'
 import { HuntingView } from './components/HuntingView'
@@ -15,6 +16,7 @@ type TabType = 'realm' | 'town' | 'hunt' | 'mine' | 'work' | 'world'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('realm')
+  const realm = useRealmState()
   const {
     gameState,
     activeNodes,
@@ -35,6 +37,7 @@ function App() {
     <div className={`game-app ${activeTab === 'realm' ? 'strategic-mode' : ''}`}>
       {activeTab === 'realm' && (
         <RealmView
+          realm={realm}
           onOpenMap={() => setActiveTab('world')}
           onOpenLocal={() => setActiveTab('town')}
         />
@@ -145,6 +148,7 @@ function App() {
         {activeTab === 'world' && (
           <WorldMapView
             gameState={gameState}
+            realm={realm}
             onReturnToTown={() => setActiveTab('realm')}
           />
         )}

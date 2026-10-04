@@ -95,6 +95,12 @@ export const NATIONS: Record<string, Nation> = {
   },
 }
 
+export const NATION_TO_NEIGHBOR_MAP: Record<string, string> = {
+  luminas: 'crown',
+  sylvana: 'sylvana',
+  auric_league: 'auric',
+}
+
 interface NationAnchor { nationId:string; x:number; y:number; weight:number }
 const NATION_ANCHORS: NationAnchor[] = [
   {nationId:'vael_crown',x:170,y:350,weight:.78},{nationId:'frostmark',x:1050,y:205,weight:1.05},
