@@ -37,10 +37,10 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="brand-icon">⚔️</span>
           <div>
             <div className="brand-title-wrap">
-              <h1 className="brand-title">MY-WORLD</h1>
+              <h1 className="brand-title">🏰 MY-WORLD</h1>
               <span className="day-badge">☀️ Day {dayState.day}</span>
             </div>
-            <span className="brand-tag">마을 개척 &amp; 턴제 생존 전략 RPG</span>
+            <span className="brand-tag">👑 루미나스 왕국 변경 개척 영주령</span>
           </div>
         </div>
 
@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="header-stats-grid">
         <div className="player-stats-card">
           <div className="stat-row">
-            <span className="player-level">Lv.{player.level} 모험가</span>
+            <span className="player-level">👑 Lv.{player.level} 영주</span>
             <span className="player-combat-stats">
               ⚔️ {player.attack} | 🛡️ {player.defense} | ⛏️ {player.miningPower}
             </span>

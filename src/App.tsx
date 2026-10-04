@@ -5,11 +5,12 @@ import { TownView } from './components/TownView'
 import { HuntingView } from './components/HuntingView'
 import { MiningView } from './components/MiningView'
 import { WorkView } from './components/WorkView'
+import { WorldMapView } from './components/WorldMapView'
 import { LogView } from './components/LogView'
 import { NightEventModal } from './components/NightEventModal'
 import './App.css'
 
-type TabType = 'town' | 'hunt' | 'mine' | 'work'
+type TabType = 'town' | 'hunt' | 'mine' | 'work' | 'world'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('town')
@@ -75,6 +76,15 @@ function App() {
           🪵 벌목 &amp; 노동
           <span className="tab-pill-work">목재·일당 (1 AP)</span>
         </button>
+
+        {/* 🗺️ World Map Tab */}
+        <button
+          className={`tab-btn tab-btn-world ${activeTab === 'world' ? 'active' : ''}`}
+          onClick={() => setActiveTab('world')}
+        >
+          🗺️ 대륙 세계지도
+          <span className="tab-pill-world">대륙 정세</span>
+        </button>
       </nav>
 
       {/* 3. Main Action View */}
@@ -112,6 +122,13 @@ function App() {
           <WorkView
             onWorkLogging={workLogging}
             onNavigateToTown={() => setActiveTab('town')}
+          />
+        )}
+
+        {activeTab === 'world' && (
+          <WorldMapView
+            gameState={gameState}
+            onReturnToTown={() => setActiveTab('town')}
           />
         )}
       </main>
