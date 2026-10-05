@@ -1,7 +1,15 @@
 import { useMemo, useState } from 'react'
-import { CAMPAIGN_ORDERS, DOCTRINE_LABELS, INDUSTRIES, POLICIES, calculateArmyPower } from '../constants/realmData'
+import {
+  CAMPAIGN_ORDERS,
+  DOCTRINE_LABELS,
+  INDUSTRIES,
+  POLICIES,
+  TRADE_CONTRACTS,
+  calculateArmyPower,
+  calculateNeighborEfficiency,
+} from '../constants/realmData'
 import type { RealmHandle } from '../hooks/useRealmState'
-import type { IndustryId, PolicyId } from '../types/realm'
+import type { IndustryId, NeighborRealm, PolicyId, TradeContractId } from '../types/realm'
 
 type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy'
 
@@ -14,6 +22,51 @@ const capacityLabels = {
 }
 
 const signed = (value: number) => `${value >= 0 ? '+' : ''}${value}`
+
+function getContractPreview(neighbor: NeighborRealm, contractId: TradeContractId, policies: PolicyId[]) {
+  const contractDef = TRADE_CONTRACTS.find((c) => c.id === contractId) || TRADE_CONTRACTS[0]
+  const override = contractDef.partnerOverrides[neighbor.id]
+  const costs = {
+    treasury: override?.costs?.treasury ?? contractDef.baseCosts.treasury,
+    grain: override?.costs?.grain ?? contractDef.baseCosts.grain,
+    iron: override?.costs?.iron ?? contractDef.baseCosts.iron,
+    timber: override?.costs?.timber ?? contractDef.baseCosts.timber,
+  }
+  const baseYields = {
+    treasury: override?.yields?.treasury ?? contractDef.baseYields.treasury,
+    grain: override?.yields?.grain ?? contractDef.baseYields.grain,
+    iron: override?.yields?.iron ?? contractDef.baseYields.iron,
+    timber: override?.yields?.timber ?? contractDef.baseYields.timber,
+  }
+  const efficiency = calculateNeighborEfficiency(neighbor.relation)
+  const effRate = efficiency / 100
+  let treasuryYield = Math.round(baseYields.treasury * effRate)
+  if (policies.includes('merchant_charter') && treasuryYield > 0) {
+    treasuryYield = Math.round(treasuryYield * 1.5)
+  }
+  if (policies.includes('free_port')) {
+    treasuryYield += 6
+  }
+  const grainYield = Math.round(baseYields.grain * effRate) + (policies.includes('free_port') && baseYields.grain > 0 ? 5 : 0)
+  const ironYield = Math.round(baseYields.iron * effRate)
+  const timberYield = Math.round(baseYields.timber * effRate)
+
+  const parts: string[] = []
+  if (costs.treasury > 0) parts.push(`−🪙${costs.treasury}`)
+  if (costs.grain > 0) parts.push(`−🌾${costs.grain}`)
+  if (costs.iron > 0) parts.push(`−⛓${costs.iron}`)
+  if (costs.timber > 0) parts.push(`−🪵${costs.timber}`)
+  const costStr = parts.join(' ')
+
+  const yieldParts: string[] = []
+  if (treasuryYield > 0) yieldParts.push(`+🪙${treasuryYield}`)
+  if (grainYield > 0) yieldParts.push(`+🌾${grainYield}`)
+  if (ironYield > 0) yieldParts.push(`+⛓${ironYield}`)
+  if (timberYield > 0) yieldParts.push(`+🪵${timberYield}`)
+  const yieldStr = yieldParts.join(' ')
+
+  return { costs, yields: { treasury: treasuryYield, grain: grainYield, iron: ironYield, timber: timberYield }, costStr, yieldStr, partnerBonusLabel: override?.partnerBonusLabel }
+}
 
 export interface RealmViewProps {
   realm: RealmHandle
@@ -31,6 +84,7 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     recruitSoldiers,
     callLevies,
     diplomaticAction,
+    changeTradeContract,
     launchCampaign,
     selectCampaignOrder,
     withdrawCampaign,
@@ -215,11 +269,41 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
           <article className="realm-panel realm-ledger-panel">
             <div className="realm-panel-heading"><div><small>MONTHLY LEDGER</small><h2>다음 달 예상 결산</h2></div></div>
             <dl className="realm-ledger">
-              <div><dt>장원·시장 총세입</dt><dd>+{monthlyProjection.grossIncome}</dd></div>
+              <div><dt>장원·시장 세입</dt><dd>+{monthlyProjection.baseIndustryIncome}</dd></div>
+              <div>
+                <dt>교역 국고 순변동</dt>
+                <dd className={monthlyProjection.tradeEvaluation.totalNet.treasury < 0 ? 'negative' : ''}>
+                  {signed(monthlyProjection.tradeEvaluation.totalNet.treasury)}
+                </dd>
+              </div>
               <div><dt>군대 유지비</dt><dd className="negative">−{monthlyProjection.militaryUpkeep}</dd></div>
               <div className="total"><dt>국고 순변동</dt><dd>{signed(monthlyProjection.treasury)}</dd></div>
-              <div><dt>식량 순변동</dt><dd>{signed(monthlyProjection.grain)}</dd></div>
-              <div><dt>활성 교역로</dt><dd>{monthlyProjection.activeTrades}개</dd></div>
+              <div>
+                <dt>식량 순변동</dt>
+                <dd>
+                  {signed(monthlyProjection.grain)}
+                  <small style={{ color: '#8899a6', marginLeft: '4px' }}>
+                    (교역 {signed(monthlyProjection.tradeEvaluation.totalNet.grain)})
+                  </small>
+                </dd>
+              </div>
+              <div>
+                <dt>철 / 목재 순변동</dt>
+                <dd>
+                  ⛓{signed(monthlyProjection.iron)} · 🪵{signed(monthlyProjection.timber)}
+                </dd>
+              </div>
+              <div>
+                <dt>교역로 가동 현황</dt>
+                <dd>
+                  {monthlyProjection.activeTrades}개 활성
+                  {monthlyProjection.suspendedTrades > 0 && (
+                    <span className="negative" style={{ marginLeft: '4px' }}>
+                      (⚠️ {monthlyProjection.suspendedTrades}개 중단)
+                    </span>
+                  )}
+                </dd>
+              </div>
               <div><dt>새로 병합한 영지</dt><dd>{annexedCount}곳</dd></div>
             </dl>
             <div className="realm-quick-actions">
@@ -452,6 +536,91 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                           <span className="recent-val text-muted">최근 동향 없음</span>
                         )}
                       </div>
+
+                      {neighbor.tradeActive && !neighbor.annexed && (() => {
+                        const currentContractId: TradeContractId = neighbor.tradeContract || 'balanced_exchange'
+                        const routeEval = monthlyProjection.tradeEvaluation.routes.find((r) => r.neighborId === neighbor.id)
+                        const efficiency = calculateNeighborEfficiency(neighbor.relation)
+                        const currentDef = TRADE_CONTRACTS.find((c) => c.id === currentContractId) || TRADE_CONTRACTS[0]
+                        const override = currentDef.partnerOverrides[neighbor.id]
+
+                        return (
+                          <div className="neighbor-trade-panel">
+                            <div className="trade-panel-header">
+                              <div className="trade-panel-title">
+                                <span className="trade-badge">⛵ 교역 계약</span>
+                                <strong>{currentDef.name}</strong>
+                              </div>
+                              <div className="trade-panel-meta">
+                                <span className="trade-efficiency-tag" title="우호도 기반 교역 효율 (65% ~ 135%)">
+                                  효율 {efficiency}%
+                                </span>
+                                {routeEval?.isSuspended && (
+                                  <span className="trade-suspended-tag">⚠️ 이번 달 중단</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {override?.partnerBonusLabel && (
+                              <div className="trade-partner-bonus">
+                                <span className="bonus-label">특화 효과:</span>
+                                <span className="bonus-text">{override.partnerBonusLabel}</span>
+                              </div>
+                            )}
+
+                            {routeEval?.isSuspended && (
+                              <div className="trade-suspended-notice">
+                                <span>⚠️ {routeEval.suspendReason}</span>
+                                <small>자원이 충족될 때까지 비용 지출 및 교역품 공급이 일시 중지됩니다.</small>
+                              </div>
+                            )}
+
+                            <div className="trade-contracts-grid">
+                              {TRADE_CONTRACTS.map((contract) => {
+                                const isCurrent = contract.id === currentContractId
+                                const preview = getContractPreview(neighbor, contract.id, state.policies)
+                                const canChange = state.capacities.diplomacy >= 1 && state.resources.treasury >= 10 && !isWarTarget
+
+                                return (
+                                  <div
+                                    key={contract.id}
+                                    className={`contract-chip ${isCurrent ? 'active-contract' : ''}`}
+                                  >
+                                    <div className="contract-chip-header">
+                                      <span>{contract.icon} {contract.name}</span>
+                                      {isCurrent && <span className="chip-current-badge">✓ 체결됨</span>}
+                                    </div>
+                                    <div className="contract-chip-deltas">
+                                      {preview.costStr ? (
+                                        <div className="chip-cost"><small>소모</small> {preview.costStr}</div>
+                                      ) : (
+                                        <div className="chip-cost free"><small>소모</small> 없음</div>
+                                      )}
+                                      <div className="chip-yield"><small>공급</small> {preview.yieldStr}</div>
+                                    </div>
+                                    {!isCurrent && (
+                                      <button
+                                        disabled={!canChange}
+                                        className="btn-select-contract"
+                                        onClick={() => changeTradeContract(neighbor.id, contract.id)}
+                                        title={
+                                          isWarTarget
+                                            ? '전쟁 중에는 계약을 변경할 수 없습니다'
+                                            : state.capacities.diplomacy < 1 || state.resources.treasury < 10
+                                            ? '외교력 1 및 국고 10 필요'
+                                            : '계약 변경'
+                                        }
+                                      >
+                                        계약 변경 <small>(🤝1 · 🪙10)</small>
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {!neighbor.annexed && (

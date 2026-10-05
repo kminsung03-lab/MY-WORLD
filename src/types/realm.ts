@@ -27,6 +27,24 @@ export interface RealmIndustry {
   level: number
 }
 
+export type TradeContractId =
+  | 'balanced_exchange'
+  | 'provisions_import'
+  | 'materials_import'
+  | 'export_charter'
+
+export interface TradeRouteEvaluation {
+  neighborId: string
+  neighborName: string
+  contractId: TradeContractId
+  isSuspended: boolean
+  suspendReason?: string
+  efficiency: number
+  costs: RealmResources
+  yields: RealmResources
+  net: RealmResources
+}
+
 export interface NeighborRealm {
   id: string
   name: string
@@ -38,6 +56,7 @@ export interface NeighborRealm {
   attitude: '우호' | '중립' | '경계' | '적대' | '종주국'
   specialty: string
   tradeActive: boolean
+  tradeContract?: TradeContractId | null
   claim: boolean
   annexed: boolean
   lastAction?: string

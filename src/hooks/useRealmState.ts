@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CAMPAIGN_ORDERS, INDUSTRIES, INITIAL_REALM_STATE, POLICIES, calculateArmyPower } from '../constants/realmData'
+import {
+  CAMPAIGN_ORDERS,
+  INDUSTRIES,
+  INITIAL_REALM_STATE,
+  POLICIES,
+  TRADE_CONTRACTS,
+  calculateArmyPower,
+  evaluateTradeRoutes,
+} from '../constants/realmData'
 import { generateWorldEvent, getDeterministicSeed } from '../constants/worldEvents'
-import type { CampaignOrderId, Doctrine, IndustryId, PolicyId, RealmLog, RealmState } from '../types/realm'
+import type {
+  CampaignOrderId,
+  Doctrine,
+  IndustryId,
+  PolicyId,
+  RealmLog,
+  RealmState,
+  TradeContractId,
+} from '../types/realm'
 
 const SAVE_KEY = 'my_world_realm_save_v1'
 
@@ -28,9 +44,14 @@ export function useRealmState() {
           ...parsed,
           neighbors: (parsed.neighbors || initial.neighbors).map((savedN: any, idx: number) => {
             const fallback = initial.neighbors.find((n) => n.id === savedN.id) || initial.neighbors[idx] || initial.neighbors[0]
+            const tradeActive = !!savedN.tradeActive
+            const tradeContract: TradeContractId | null =
+              savedN.tradeContract ?? (tradeActive ? 'balanced_exchange' : null)
             return {
               ...fallback,
               ...savedN,
+              tradeActive,
+              tradeContract,
               lastAction: savedN.lastAction || undefined,
               lastActionDate: savedN.lastActionDate || undefined,
             }
@@ -70,20 +91,35 @@ export function useRealmState() {
     const ironworks = state.industries.ironworks.level
     const market = state.industries.market.level
     const lumber = state.industries.lumberyard.level
-    const activeTrades = state.neighbors.filter((neighbor) => neighbor.tradeActive && !neighbor.annexed).length
     const taxBonus = state.policies.includes('land_register') ? 1.15 : 1
-    const tradeBase = state.policies.includes('merchant_charter') ? 18 : 12
-    const freePort = state.policies.includes('free_port') ? 12 : 0
-    const grossIncome = Math.round((34 + farm * 6 + ironworks * 5 + market * 18 + lumber * 4) * taxBonus + activeTrades * (tradeBase + freePort))
+    const baseGrossIncome = Math.round((34 + farm * 6 + ironworks * 5 + market * 18 + lumber * 4) * taxBonus)
     const militaryUpkeep = Math.ceil(state.soldiers / 30) + Math.ceil(state.levies / 180) + (state.policies.includes('standing_guard') ? 8 : 0)
+
+    const tradeEval = evaluateTradeRoutes(
+      state.neighbors,
+      state.resources,
+      state.policies,
+      state.activeCampaign?.targetId,
+    )
+
+    const baseGrain = farm * 18 - Math.ceil((state.population + state.soldiers) / 850)
+    const baseIron = ironworks * 7
+    const baseTimber = lumber * 10
+
     return {
-      treasury: grossIncome - militaryUpkeep,
-      grossIncome,
+      treasury: baseGrossIncome + tradeEval.totalNet.treasury - militaryUpkeep,
+      grossIncome: baseGrossIncome,
       militaryUpkeep,
-      grain: farm * 18 - Math.ceil((state.population + state.soldiers) / 850),
-      iron: ironworks * 7,
-      timber: lumber * 10,
-      activeTrades,
+      grain: baseGrain + tradeEval.totalNet.grain,
+      iron: baseIron + tradeEval.totalNet.iron,
+      timber: baseTimber + tradeEval.totalNet.timber,
+      baseIndustryIncome: baseGrossIncome,
+      baseGrain,
+      baseIron,
+      baseTimber,
+      activeTrades: tradeEval.activeCount,
+      suspendedTrades: tradeEval.suspendedCount,
+      tradeEvaluation: tradeEval,
     }
   }, [state])
 
@@ -177,8 +213,9 @@ export function useRealmState() {
         next.capacities.diplomacy -= 1
         next.resources.treasury -= 35
         neighbor.tradeActive = true
+        neighbor.tradeContract = 'balanced_exchange'
         neighbor.relation = clamp(neighbor.relation + 6, -100, 100)
-        addLog(next, `${target.name} 교역로 개설`, `${target.specialty} 상단이 국경을 오가기 시작했습니다. 매달 교역 수입이 발생합니다.`, 'good')
+        addLog(next, `${target.name} 교역로 개설`, `${target.specialty} 상단이 국경을 오가기 시작했습니다. [균형 교역 협정]이 기본 체결되었습니다.`, 'good')
       } else {
         if (target.id === 'crown' || target.claim || previous.capacities.command < 1 || previous.legitimacy < 45) return previous
         next.capacities.command -= 1
@@ -187,6 +224,31 @@ export function useRealmState() {
         next.royalFavor = clamp(next.royalFavor - 4, 0, 100)
         addLog(next, `${target.name}에 대한 명분 조작`, '옛 문서와 국경 분쟁을 근거로 영유권을 공표했습니다. 상대가 강하게 반발합니다.', 'danger')
       }
+      return next
+    })
+  }
+
+  const changeTradeContract = (neighborId: string, contractId: TradeContractId) => {
+    setState((previous) => {
+      const index = previous.neighbors.findIndex((n) => n.id === neighborId)
+      if (index < 0) return previous
+      const target = previous.neighbors[index]
+      if (!target.tradeActive || target.annexed || previous.activeCampaign?.targetId === neighborId) return previous
+      if (target.tradeContract === contractId) return previous
+      if (previous.capacities.diplomacy < 1 || previous.resources.treasury < 10) return previous
+
+      const next = structuredClone(previous)
+      next.capacities.diplomacy -= 1
+      next.resources.treasury -= 10
+      next.neighbors[index].tradeContract = contractId
+
+      const contractDef = TRADE_CONTRACTS.find((c) => c.id === contractId) || TRADE_CONTRACTS[0]
+      addLog(
+        next,
+        `${target.name} 교역 계약 갱신`,
+        `교역 계약을 [${contractDef.name}]으로 변경했습니다. 다음 달부터 변경된 수급 조건이 적용됩니다. (외교력 1, 금화 10 소모)`,
+        'neutral',
+      )
       return next
     })
   }
@@ -215,6 +277,7 @@ export function useRealmState() {
       next.resources.treasury -= 80
       next.resources.grain -= 60
       next.neighbors[index].tradeActive = false
+      next.neighbors[index].tradeContract = null
       next.neighbors[index].relation = clamp(next.neighbors[index].relation - 25, -100, 100)
 
       next.activeCampaign = {
@@ -340,6 +403,19 @@ export function useRealmState() {
       ]
       addLog(next, events[eventSeed][0], `${events[eventSeed][1]} 이번 달 결산: 금화 ${monthlyProjection.treasury >= 0 ? '+' : ''}${monthlyProjection.treasury}, 식량 ${monthlyProjection.grain >= 0 ? '+' : ''}${monthlyProjection.grain}.`, eventSeed === 2 ? 'danger' : 'neutral')
 
+      if (monthlyProjection.suspendedTrades > 0) {
+        const suspendedDetails = monthlyProjection.tradeEvaluation.routes
+          .filter((r) => r.isSuspended)
+          .map((r) => `${r.neighborName} (${r.suspendReason})`)
+          .join(', ')
+        addLog(
+          next,
+          '교역로 일시 중단',
+          `군수 및 자원 부족으로 다음 교역로가 이번 달 일시 중단되었습니다: ${suspendedDetails}.`,
+          'danger',
+        )
+      }
+
       // CAMPAIGN RESOLUTION
       if (next.activeCampaign && next.activeCampaign.selectedOrder) {
         const campaign = next.activeCampaign
@@ -419,6 +495,7 @@ export function useRealmState() {
             target.annexed = true
             target.claim = false
             target.tradeActive = false
+            target.tradeContract = null
             next.population += target.strength * 95
             next.manpower += target.strength * 8
             next.autonomy = clamp(next.autonomy + 5, 0, 100)
@@ -553,6 +630,7 @@ export function useRealmState() {
     recruitSoldiers,
     callLevies,
     diplomaticAction,
+    changeTradeContract,
     launchCampaign,
     selectCampaignOrder,
     withdrawCampaign,

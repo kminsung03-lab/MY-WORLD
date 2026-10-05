@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DOCTRINE_LABELS, calculateArmyPower } from '../constants/realmData'
+import {
+  DOCTRINE_LABELS,
+  TRADE_CONTRACTS,
+  type TradeContractDefinition,
+  calculateArmyPower,
+  evaluateTradeRoutes,
+} from '../constants/realmData'
 import type { GameState } from '../types/game'
 import type { Nation, Province } from '../types/worldMap'
 import {
@@ -92,14 +98,41 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
   }, [annexedProvinces])
 
   const activeTradeRoutes = useMemo(() => {
-    const routes: { neighbor: typeof realmState.neighbors[number]; targetProvince: Province }[] = []
+    const routes: {
+      neighbor: typeof realmState.neighbors[number]
+      targetProvince: Province
+      contractDef: TradeContractDefinition
+      isSuspended: boolean
+      suspendReason?: string
+    }[] = []
+    const tradeEval = evaluateTradeRoutes(
+      realmState.neighbors,
+      realmState.resources,
+      realmState.policies,
+      realmState.activeCampaign?.targetId,
+    )
     for (const item of strategicProvinces.values()) {
-      if (item.neighbor.tradeActive) {
-        routes.push({ neighbor: item.neighbor, targetProvince: item.province })
+      if (item.neighbor.tradeActive && !item.neighbor.annexed) {
+        const routeEval = tradeEval.routes.find((r) => r.neighborId === item.neighbor.id)
+        const contractId = item.neighbor.tradeContract || 'balanced_exchange'
+        const contractDef = TRADE_CONTRACTS.find((c) => c.id === contractId) || TRADE_CONTRACTS[0]
+        routes.push({
+          neighbor: item.neighbor,
+          targetProvince: item.province,
+          contractDef,
+          isSuspended: routeEval?.isSuspended ?? false,
+          suspendReason: routeEval?.suspendReason,
+        })
       }
     }
     return routes
-  }, [strategicProvinces])
+  }, [
+    strategicProvinces,
+    realmState.neighbors,
+    realmState.resources,
+    realmState.policies,
+    realmState.activeCampaign,
+  ])
 
   const selectedAnnexedInfo = strategicProvinces.get(selectedProvince.id)
   const isSelectedAnnexed = selectedAnnexedInfo?.neighbor.annexed === true
@@ -122,6 +155,11 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
   const matchedNeighbor = mappedNeighborId
     ? realmState.neighbors.find((neighbor) => neighbor.id === mappedNeighborId)
     : undefined
+
+  const matchedTradeRoute = useMemo(() => {
+    if (!matchedNeighbor) return undefined
+    return activeTradeRoutes.find((r) => r.neighbor.id === matchedNeighbor.id)
+  }, [matchedNeighbor, activeTradeRoutes])
 
 
   const fitMap = useCallback(() => {
@@ -335,7 +373,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
     })
 
     // Active Trade Routes (곡선 점선 교역로 및 중간 교역 아이콘)
-    activeTradeRoutes.forEach(({ neighbor, targetProvince }) => {
+    activeTradeRoutes.forEach(({ neighbor, targetProvince, contractDef, isSuspended }) => {
       const p0 = playerFief.center
       const p1 = targetProvince.center
       const dx = p1[0] - p0[0]
@@ -349,23 +387,42 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
 
       ctx.save()
 
-      // Soft ambient glow under the trade route
-      ctx.beginPath()
-      ctx.moveTo(p0[0], p0[1])
-      ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
-      ctx.strokeStyle = 'rgba(251, 191, 36, 0.28)'
-      ctx.lineWidth = 5.5 / zoom
-      ctx.stroke()
+      if (isSuspended) {
+        // Muted gray/amber style for suspended route
+        ctx.beginPath()
+        ctx.moveTo(p0[0], p0[1])
+        ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)'
+        ctx.lineWidth = 4 / zoom
+        ctx.stroke()
 
-      // Dashed golden active trade line
-      ctx.beginPath()
-      ctx.moveTo(p0[0], p0[1])
-      ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
-      ctx.setLineDash([8 / zoom, 5 / zoom])
-      ctx.strokeStyle = '#f59e0b'
-      ctx.lineWidth = 2.4 / zoom
-      ctx.stroke()
-      ctx.setLineDash([])
+        ctx.beginPath()
+        ctx.moveTo(p0[0], p0[1])
+        ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
+        ctx.setLineDash([4 / zoom, 6 / zoom])
+        ctx.strokeStyle = '#94a3b8'
+        ctx.lineWidth = 2 / zoom
+        ctx.stroke()
+        ctx.setLineDash([])
+      } else {
+        // Soft ambient glow under the trade route
+        ctx.beginPath()
+        ctx.moveTo(p0[0], p0[1])
+        ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.28)'
+        ctx.lineWidth = 5.5 / zoom
+        ctx.stroke()
+
+        // Dashed golden active trade line
+        ctx.beginPath()
+        ctx.moveTo(p0[0], p0[1])
+        ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
+        ctx.setLineDash([8 / zoom, 5 / zoom])
+        ctx.strokeStyle = '#f59e0b'
+        ctx.lineWidth = 2.4 / zoom
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
 
       // Trade Icon Badge at midpoint
       const iconX = 0.25 * p0[0] + 0.5 * midX + 0.25 * p1[0]
@@ -374,23 +431,25 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       const badgeRadius = Math.max(9, Math.min(18, 12 / zoom))
       ctx.beginPath()
       ctx.arc(iconX, iconY, badgeRadius, 0, Math.PI * 2)
-      ctx.fillStyle = '#0f172a'
+      ctx.fillStyle = isSuspended ? '#1e293b' : '#0f172a'
       ctx.fill()
-      ctx.strokeStyle = '#fbbf24'
+      ctx.strokeStyle = isSuspended ? '#ef4444' : '#fbbf24'
       ctx.lineWidth = 1.8 / zoom
       ctx.stroke()
 
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.font = `${Math.max(10, Math.min(18, 13 / zoom))}px ${FONT_STACK}`
-      ctx.fillText('⛵', iconX, iconY + 1 / zoom)
+      ctx.fillText(isSuspended ? '⚠️' : contractDef.icon, iconX, iconY + 1 / zoom)
 
       if (zoom >= 0.52) {
         ctx.font = `700 ${Math.max(9, Math.min(14, 10 / zoom))}px ${FONT_STACK}`
-        ctx.fillStyle = '#fde68a'
+        ctx.fillStyle = isSuspended ? '#fca5a5' : '#fde68a'
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)'
         ctx.lineWidth = 2.5 / zoom
-        const label = `교역: ${neighbor.name}`
+        const label = isSuspended
+          ? `교역: ${neighbor.name} [${contractDef.name}] (중단)`
+          : `교역: ${neighbor.name} [${contractDef.name}]`
         ctx.strokeText(label, iconX, iconY + badgeRadius + 8 / zoom)
         ctx.fillText(label, iconX, iconY + badgeRadius + 8 / zoom)
       }
@@ -825,11 +884,31 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                       </span>
                     </div>
                     <div className="neighbor-row">
-                      <span className="neighbor-k">교역 상태</span>
+                      <span className="neighbor-k">교역 계약</span>
                       <span className="neighbor-v">
-                        {matchedNeighbor.tradeActive ? '✅ 교역로 개설됨 (월간 수입 기여)' : '❌ 미체결'}
+                        {matchedNeighbor.tradeActive ? (
+                          matchedTradeRoute?.isSuspended ? (
+                            <span className="text-danger">
+                              ⚠️ {matchedTradeRoute.contractDef.name} (중단: {matchedTradeRoute.suspendReason})
+                            </span>
+                          ) : (
+                            <span className="text-good">
+                              ⛵ {matchedTradeRoute?.contractDef.name || '균형 교역 협정'} (가동 중)
+                            </span>
+                          )
+                        ) : (
+                          '❌ 미체결'
+                        )}
                       </span>
                     </div>
+                    {matchedNeighbor.tradeActive && matchedTradeRoute && (
+                      <div className="neighbor-row">
+                        <span className="neighbor-k">특화 보너스</span>
+                        <span className="neighbor-v text-amber">
+                          {matchedTradeRoute.contractDef.partnerOverrides[matchedNeighbor.id]?.partnerBonusLabel || '기본 특산품 교역'}
+                        </span>
+                      </div>
+                    )}
                     <div className="neighbor-row">
                       <span className="neighbor-k">명분 상태</span>
                       <span className="neighbor-v">

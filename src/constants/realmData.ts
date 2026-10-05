@@ -1,4 +1,14 @@
-import type { CampaignOrderId, Doctrine, IndustryId, PolicyId, RealmState } from '../types/realm'
+import type {
+  CampaignOrderId,
+  Doctrine,
+  IndustryId,
+  NeighborRealm,
+  PolicyId,
+  RealmResources,
+  RealmState,
+  TradeContractId,
+  TradeRouteEvaluation,
+} from '../types/realm'
 
 export interface IndustryDefinition {
   id: IndustryId
@@ -174,6 +184,319 @@ export const CAMPAIGN_ORDERS: CampaignOrderDefinition[] = [
   },
 ]
 
+export interface TradeContractDefinition {
+  id: TradeContractId
+  name: string
+  icon: string
+  description: string
+  character: string
+  baseCosts: RealmResources
+  baseYields: RealmResources
+  partnerOverrides: Record<
+    string,
+    {
+      partnerBonusLabel: string
+      costs?: Partial<RealmResources>
+      yields?: Partial<RealmResources>
+    }
+  >
+}
+
+export const TRADE_CONTRACTS: TradeContractDefinition[] = [
+  {
+    id: 'balanced_exchange',
+    name: '균형 교역 협정',
+    icon: '⚖️',
+    description: '상호 관세를 낮추고 상인들에게 안전 통행권을 제공해 안정적인 국고 세입과 소량의 특산품을 확보합니다.',
+    character: '투입 자원 없음 · 안정적 금화 세입 및 파트너 특산 자원 획득',
+    baseCosts: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+    baseYields: { treasury: 14, grain: 0, iron: 0, timber: 0 },
+    partnerOverrides: {
+      crown: {
+        partnerBonusLabel: '왕실 궁정의 사치품 수요로 세입 증가 (+4🪙, +2🌾)',
+        yields: { treasury: 18, grain: 2 },
+      },
+      sylvana: {
+        partnerBonusLabel: '고대 수림의 희귀 정령목과 약초 유입 (+8🌾, +6🪵)',
+        yields: { treasury: 10, grain: 8, timber: 6 },
+      },
+      ironridge: {
+        partnerBonusLabel: '북부 제련 광맥의 정제 철 공급 (+6⛓)',
+        yields: { treasury: 10, iron: 6 },
+      },
+      auric: {
+        partnerBonusLabel: '자유시 금융 어음 및 해상 관세 극대화 (+8🪙)',
+        yields: { treasury: 22 },
+      },
+      goblin: {
+        partnerBonusLabel: '황야의 노획 금속 및 사냥감 거래 (+10🌾, +3⛓)',
+        yields: { treasury: 8, grain: 10, iron: 3 },
+      },
+    },
+  },
+  {
+    id: 'provisions_import',
+    name: '군량·식량 수입 계약',
+    icon: '🌾',
+    description: '국고를 지출하여 파트너 국가의 곡물과 가공 식량을 대량 매입해 영지 인구 증가와 군대 보급을 지원합니다.',
+    character: '국고 소모 · 대량의 식량 획득 · 기근 및 군비 확장 대비',
+    baseCosts: { treasury: 16, grain: 0, iron: 0, timber: 0 },
+    baseYields: { treasury: 0, grain: 34, iron: 0, timber: 0 },
+    partnerOverrides: {
+      crown: {
+        partnerBonusLabel: '왕실 구휼미 지원금 환급 (+4🪙, +28🌾)',
+        yields: { treasury: 4, grain: 28 },
+      },
+      sylvana: {
+        partnerBonusLabel: '원시림의 비옥한 산림 식생 대풍작 (+44🌾)',
+        yields: { grain: 44 },
+      },
+      ironridge: {
+        partnerBonusLabel: '척박한 고산 지형으로 곡물 수급 제한 (+24🌾)',
+        yields: { grain: 24 },
+      },
+      auric: {
+        partnerBonusLabel: '대형 수송선단 운임 절감 (비용 🪙12로 할인, +34🌾)',
+        costs: { treasury: 12 },
+        yields: { grain: 34 },
+      },
+      goblin: {
+        partnerBonusLabel: '황야의 야생 가축과 건육 교환 (+38🌾, +2⛓)',
+        yields: { grain: 38, iron: 2 },
+      },
+    },
+  },
+  {
+    id: 'materials_import',
+    name: '자재·철재 수입 계약',
+    icon: '⚒️',
+    description: '국고를 투입해 성채 방벽 보수, 산업 확장, 상비군 무장에 필요한 철과 목재 등 핵심 원자재를 수입합니다.',
+    character: '국고 소모 · 철 및 목재 수급 · 산업 개발 및 상비군 편성 특화',
+    baseCosts: { treasury: 18, grain: 0, iron: 0, timber: 0 },
+    baseYields: { treasury: 0, grain: 0, iron: 8, timber: 12 },
+    partnerOverrides: {
+      crown: {
+        partnerBonusLabel: '관청 건축 보조금 지원 (+4🪙, +8⛓, +12🪵)',
+        yields: { treasury: 4, iron: 8, timber: 12 },
+      },
+      sylvana: {
+        partnerBonusLabel: '실바나산 최상급 정령목 집중 공급 (+4⛓, +22🪵)',
+        yields: { iron: 4, timber: 22 },
+      },
+      ironridge: {
+        partnerBonusLabel: '철령의 풍부한 철광석 집중 공급 (+16⛓, +4🪵)',
+        yields: { iron: 16, timber: 4 },
+      },
+      auric: {
+        partnerBonusLabel: '해상 원거리 무역을 통한 균형 자재 공급 (+10⛓, +14🪵)',
+        yields: { iron: 10, timber: 14 },
+      },
+      goblin: {
+        partnerBonusLabel: '동부 황야의 거친 노획 고철과 벌목재 (+10⛓, +8🪵)',
+        yields: { iron: 10, timber: 8 },
+      },
+    },
+  },
+  {
+    id: 'export_charter',
+    name: '영지 특산물 수출 특허',
+    icon: '🪙',
+    description: '에르덴의 잉여 농산물과 삼림 목재를 가공 수출하여 국고에 막대한 무역 이윤을 남깁니다.',
+    character: '식량 및 목재 소모 · 막대한 금화 세입 창출 · 경제 번영 특화',
+    baseCosts: { treasury: 0, grain: 16, iron: 0, timber: 8 },
+    baseYields: { treasury: 38, grain: 0, iron: 0, timber: 0 },
+    partnerOverrides: {
+      crown: {
+        partnerBonusLabel: '왕실 조달청 전매 특허로 우대 매입 (소모 🌾12·🪵6, 세입 +44🪙)',
+        costs: { grain: 12, timber: 6 },
+        yields: { treasury: 44 },
+      },
+      sylvana: {
+        partnerBonusLabel: '삼림 보호국으로 목재 불필요 (소모 🌾20·🪵0, 세입 +38🪙)',
+        costs: { grain: 20, timber: 0 },
+        yields: { treasury: 38 },
+      },
+      ironridge: {
+        partnerBonusLabel: '산악 광산 노동자 곡물 수요 집중 (소모 🌾18·🪵4, 세입 +36🪙)',
+        costs: { grain: 18, timber: 4 },
+        yields: { treasury: 36 },
+      },
+      auric: {
+        partnerBonusLabel: '자유시 국제 무역망을 통한 최고가 매각 (세입 +48🪙)',
+        yields: { treasury: 48 },
+      },
+      goblin: {
+        partnerBonusLabel: '황야 부족의 구매력 한계로 저단가 수출 (소모 🌾14·🪵6, 세입 +32🪙)',
+        costs: { grain: 14, timber: 6 },
+        yields: { treasury: 32 },
+      },
+    },
+  },
+]
+
+export function calculateNeighborEfficiency(relation: number): number {
+  return Math.max(65, Math.min(135, Math.round(100 + relation * 0.35)))
+}
+
+export function evaluateTradeRoutes(
+  neighbors: NeighborRealm[],
+  resources: RealmResources,
+  policies: PolicyId[],
+  activeCampaignTargetId?: string | null,
+): {
+  routes: TradeRouteEvaluation[]
+  activeCount: number
+  suspendedCount: number
+  totalNet: RealmResources
+  totalYields: RealmResources
+  totalCosts: RealmResources
+} {
+  const workingBudget: RealmResources = {
+    treasury: resources.treasury,
+    grain: resources.grain,
+    iron: resources.iron,
+    timber: resources.timber,
+  }
+
+  const routes: TradeRouteEvaluation[] = []
+  let activeCount = 0
+  let suspendedCount = 0
+  const totalNet: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  const totalYields: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  const totalCosts: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+
+  const hasMerchantCharter = policies.includes('merchant_charter')
+  const hasFreePort = policies.includes('free_port')
+
+  for (const neighbor of neighbors) {
+    if (!neighbor.tradeActive || neighbor.annexed || (activeCampaignTargetId && neighbor.id === activeCampaignTargetId)) {
+      continue
+    }
+
+    const contractId: TradeContractId = neighbor.tradeContract || 'balanced_exchange'
+    const contractDef = TRADE_CONTRACTS.find((c) => c.id === contractId) || TRADE_CONTRACTS[0]
+    const override = contractDef.partnerOverrides[neighbor.id]
+
+    const costs: RealmResources = {
+      treasury: override?.costs?.treasury ?? contractDef.baseCosts.treasury,
+      grain: override?.costs?.grain ?? contractDef.baseCosts.grain,
+      iron: override?.costs?.iron ?? contractDef.baseCosts.iron,
+      timber: override?.costs?.timber ?? contractDef.baseCosts.timber,
+    }
+
+    const baseYields: RealmResources = {
+      treasury: override?.yields?.treasury ?? contractDef.baseYields.treasury,
+      grain: override?.yields?.grain ?? contractDef.baseYields.grain,
+      iron: override?.yields?.iron ?? contractDef.baseYields.iron,
+      timber: override?.yields?.timber ?? contractDef.baseYields.timber,
+    }
+
+    const efficiency = calculateNeighborEfficiency(neighbor.relation)
+    const effRate = efficiency / 100
+
+    // Atomic pre-month resource budget affordability check
+    const canAfford =
+      workingBudget.treasury >= costs.treasury &&
+      workingBudget.grain >= costs.grain &&
+      workingBudget.iron >= costs.iron &&
+      workingBudget.timber >= costs.timber
+
+    if (!canAfford) {
+      suspendedCount += 1
+      let reason = '자원 부족'
+      if (workingBudget.treasury < costs.treasury) {
+        reason = `국고 부족 (필요 🪙${costs.treasury} / 가용 🪙${workingBudget.treasury})`
+      } else if (workingBudget.grain < costs.grain) {
+        reason = `식량 부족 (필요 🌾${costs.grain} / 가용 🌾${workingBudget.grain})`
+      } else if (workingBudget.timber < costs.timber) {
+        reason = `목재 부족 (필요 🪵${costs.timber} / 가용 🪵${workingBudget.timber})`
+      } else if (workingBudget.iron < costs.iron) {
+        reason = `철 부족 (필요 ⛓${costs.iron} / 가용 ⛓${workingBudget.iron})`
+      }
+
+      routes.push({
+        neighborId: neighbor.id,
+        neighborName: neighbor.name,
+        contractId,
+        isSuspended: true,
+        suspendReason: reason,
+        efficiency,
+        costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+        yields: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+        net: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      })
+    } else {
+      activeCount += 1
+      // Deduct from shared working budget atomically
+      workingBudget.treasury -= costs.treasury
+      workingBudget.grain -= costs.grain
+      workingBudget.iron -= costs.iron
+      workingBudget.timber -= costs.timber
+
+      let treasuryYield = Math.round(baseYields.treasury * effRate)
+      if (hasMerchantCharter && treasuryYield > 0) {
+        treasuryYield = Math.round(treasuryYield * 1.5)
+      }
+      if (hasFreePort) {
+        treasuryYield += 6
+      }
+
+      const grainYield = Math.round(baseYields.grain * effRate) + (hasFreePort && baseYields.grain > 0 ? 5 : 0)
+      const ironYield = Math.round(baseYields.iron * effRate)
+      const timberYield = Math.round(baseYields.timber * effRate)
+
+      const finalYields: RealmResources = {
+        treasury: treasuryYield,
+        grain: grainYield,
+        iron: ironYield,
+        timber: timberYield,
+      }
+
+      const net: RealmResources = {
+        treasury: finalYields.treasury - costs.treasury,
+        grain: finalYields.grain - costs.grain,
+        iron: finalYields.iron - costs.iron,
+        timber: finalYields.timber - costs.timber,
+      }
+
+      totalCosts.treasury += costs.treasury
+      totalCosts.grain += costs.grain
+      totalCosts.iron += costs.iron
+      totalCosts.timber += costs.timber
+
+      totalYields.treasury += finalYields.treasury
+      totalYields.grain += finalYields.grain
+      totalYields.iron += finalYields.iron
+      totalYields.timber += finalYields.timber
+
+      totalNet.treasury += net.treasury
+      totalNet.grain += net.grain
+      totalNet.iron += net.iron
+      totalNet.timber += net.timber
+
+      routes.push({
+        neighborId: neighbor.id,
+        neighborName: neighbor.name,
+        contractId,
+        isSuspended: false,
+        efficiency,
+        costs,
+        yields: finalYields,
+        net,
+      })
+    }
+  }
+
+  return {
+    routes,
+    activeCount,
+    suspendedCount,
+    totalNet,
+    totalYields,
+    totalCosts,
+  }
+}
+
 export const DOCTRINE_LABELS: Record<Doctrine, string> = {
   unset: '노선 미결정',
   stewardship: '질서의 길',
@@ -210,11 +533,11 @@ export const INITIAL_REALM_STATE: RealmState = {
   autonomy: 24,
   royalFavor: 51,
   neighbors: [
-    { id: 'crown', name: '루미나스 왕령', title: '황금 왕관의 종주국', ruler: '여왕 아우렐리아 3세', icon: '👑', relation: 36, strength: 84, attitude: '종주국', specialty: '사치품 · 왕실 관료', tradeActive: false, claim: false, annexed: false },
-    { id: 'sylvana', name: '실바나 숲의회', title: '고대 수림의 연맹', ruler: '수호자 이실렌', icon: '🌲', relation: 18, strength: 39, attitude: '우호', specialty: '약초 · 정령목', tradeActive: false, claim: false, annexed: false },
-    { id: 'ironridge', name: '철령 남작령', title: '북부 관문의 경쟁자', ruler: '남작 볼프람', icon: '⛰️', relation: -14, strength: 48, attitude: '경계', specialty: '철광 · 중장갑', tradeActive: false, claim: false, annexed: false },
-    { id: 'auric', name: '아우릭 자유시', title: '상단이 다스리는 도시', ruler: '칠인 상무회', icon: '⚓', relation: 4, strength: 32, attitude: '중립', specialty: '해상무역 · 금융', tradeActive: false, claim: false, annexed: false },
-    { id: 'goblin', name: '붉은이빨 부족령', title: '동부 황야의 군벌', ruler: '대족장 우르가쉬', icon: '🔥', relation: -38, strength: 35, attitude: '적대', specialty: '약탈품 · 전투짐승', tradeActive: false, claim: false, annexed: false },
+    { id: 'crown', name: '루미나스 왕령', title: '황금 왕관의 종주국', ruler: '여왕 아우렐리아 3세', icon: '👑', relation: 36, strength: 84, attitude: '종주국', specialty: '사치품 · 왕실 관료', tradeActive: false, tradeContract: null, claim: false, annexed: false },
+    { id: 'sylvana', name: '실바나 숲의회', title: '고대 수림의 연맹', ruler: '수호자 이실렌', icon: '🌲', relation: 18, strength: 39, attitude: '우호', specialty: '약초 · 정령목', tradeActive: false, tradeContract: null, claim: false, annexed: false },
+    { id: 'ironridge', name: '철령 남작령', title: '북부 관문의 경쟁자', ruler: '남작 볼프람', icon: '⛰️', relation: -14, strength: 48, attitude: '경계', specialty: '철광 · 중장갑', tradeActive: false, tradeContract: null, claim: false, annexed: false },
+    { id: 'auric', name: '아우릭 자유시', title: '상단이 다스리는 도시', ruler: '칠인 상무회', icon: '⚓', relation: 4, strength: 32, attitude: '중립', specialty: '해상무역 · 금융', tradeActive: false, tradeContract: null, claim: false, annexed: false },
+    { id: 'goblin', name: '붉은이빨 부족령', title: '동부 황야의 군벌', ruler: '대족장 우르가쉬', icon: '🔥', relation: -38, strength: 35, attitude: '적대', specialty: '약탈품 · 전투짐승', tradeActive: false, tradeContract: null, claim: false, annexed: false },
   ],
   logs: [
     {
