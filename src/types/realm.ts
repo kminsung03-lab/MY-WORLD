@@ -80,6 +80,24 @@ export interface WorldEvent {
   choices: [WorldEventChoice, WorldEventChoice]
 }
 
+export type CampaignOrderId = 'assault' | 'siege' | 'resupply'
+
+export interface ActiveCampaign {
+  targetId: string
+  targetName: string
+  startYear: number
+  startMonth: number
+  campaignTurn: number
+  phase: string
+  progress: number
+  enemyMorale: number
+  supply: number
+  selectedOrder: CampaignOrderId | null
+  lostSoldiers: number
+  lostLevies: number
+  lastReport?: string
+}
+
 export interface RealmLog {
   id: string
   date: string
@@ -110,4 +128,5 @@ export interface RealmState {
   neighbors: NeighborRealm[]
   logs: RealmLog[]
   pendingWorldEvent?: WorldEvent | null
+  activeCampaign?: ActiveCampaign | null
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { INDUSTRIES, INITIAL_REALM_STATE, POLICIES } from '../constants/realmData'
-import { generateWorldEvent } from '../constants/worldEvents'
-import type { Doctrine, IndustryId, PolicyId, RealmLog, RealmState } from '../types/realm'
+import { CAMPAIGN_ORDERS, INDUSTRIES, INITIAL_REALM_STATE, POLICIES, calculateArmyPower } from '../constants/realmData'
+import { generateWorldEvent, getDeterministicSeed } from '../constants/worldEvents'
+import type { CampaignOrderId, Doctrine, IndustryId, PolicyId, RealmLog, RealmState } from '../types/realm'
 
 const SAVE_KEY = 'my_world_realm_save_v1'
 
@@ -13,6 +13,8 @@ const policyDoctrine: Record<Exclude<Doctrine, 'unset'>, string> = {
   commerce: '번영의 길',
   military: '철혈의 길',
 }
+
+let logCounter = 0
 
 export function useRealmState() {
   const [state, setState] = useState<RealmState>(() => {
@@ -34,6 +36,7 @@ export function useRealmState() {
             }
           }),
           pendingWorldEvent: parsed.pendingWorldEvent || null,
+          activeCampaign: parsed.activeCampaign || null,
         }
       }
     } catch (error) {
@@ -42,13 +45,21 @@ export function useRealmState() {
     return cloneInitialState()
   })
 
+
   useEffect(() => {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state))
   }, [state])
 
   const addLog = useCallback((draft: RealmState, title: string, detail: string, tone: RealmLog['tone'] = 'neutral') => {
+    logCounter += 1
     draft.logs = [
-      { id: `log_${draft.year}_${draft.month}_${draft.logs.length}_${Date.now()}`, date: `${draft.year}년 ${draft.month}월`, title, detail, tone },
+      {
+        id: `log_${draft.year}_${draft.month}_${Date.now()}_${logCounter}`,
+        date: `${draft.year}년 ${draft.month}월`,
+        title,
+        detail,
+        tone,
+      },
       ...draft.logs.slice(0, 11),
     ]
   }, [])
@@ -152,6 +163,7 @@ export function useRealmState() {
       if (index < 0) return previous
       const target = previous.neighbors[index]
       if (target.annexed) return previous
+      if (previous.activeCampaign?.targetId === neighborId) return previous
       const next = structuredClone(previous)
       const neighbor = next.neighbors[index]
       if (action === 'improve') {
@@ -181,26 +193,98 @@ export function useRealmState() {
 
   const launchCampaign = (neighborId: string) => {
     setState((previous) => {
+      if (previous.activeCampaign || previous.pendingWorldEvent) return previous
       const index = previous.neighbors.findIndex((neighbor) => neighbor.id === neighborId)
       if (index < 0) return previous
       const target = previous.neighbors[index]
-      const armyPower = Math.round(previous.soldiers * (previous.policies.includes('standing_guard') ? 2.75 : 2.2) + previous.levies * 0.65)
+      const armyPower = calculateArmyPower(previous.soldiers, previous.levies, previous.policies.includes('standing_guard'))
       const requiredPower = target.strength * 15
-      if (target.id === 'crown' || target.annexed || !target.claim || armyPower < requiredPower || previous.capacities.command < 2 || previous.resources.treasury < 80 || previous.resources.grain < 60) return previous
+      if (
+        target.id === 'crown' ||
+        target.annexed ||
+        !target.claim ||
+        armyPower < requiredPower ||
+        previous.capacities.command < 2 ||
+        previous.resources.treasury < 80 ||
+        previous.resources.grain < 60
+      )
+        return previous
+
       const next = structuredClone(previous)
       next.capacities.command -= 2
       next.resources.treasury -= 80
       next.resources.grain -= 60
-      next.soldiers = Math.max(40, next.soldiers - Math.ceil(target.strength * 0.7))
-      next.levies = Math.max(80, next.levies - Math.ceil(target.strength * 1.4))
-      next.neighbors[index].annexed = true
       next.neighbors[index].tradeActive = false
-      next.population += target.strength * 95
-      next.manpower += target.strength * 8
-      next.autonomy = clamp(next.autonomy + 5, 0, 100)
-      next.stability = clamp(next.stability - 4, 0, 100)
-      next.royalFavor = clamp(next.royalFavor - 8, 0, 100)
-      addLog(next, `${target.name} 병합`, '원정군이 적의 거점을 함락했습니다. 영지는 넓어졌지만 왕실과 주민 모두 당신의 다음 행보를 주시합니다.', 'danger')
+      next.neighbors[index].relation = clamp(next.neighbors[index].relation - 25, -100, 100)
+
+      next.activeCampaign = {
+        targetId: target.id,
+        targetName: target.name,
+        startYear: next.year,
+        startMonth: next.month,
+        campaignTurn: 1,
+        phase: '동원 및 진격',
+        progress: 15,
+        enemyMorale: 100,
+        supply: 100,
+        selectedOrder: null,
+        lostSoldiers: 0,
+        lostLevies: 0,
+        lastReport: `${target.name}에 대한 원정군이 국경을 넘어 전초 진지를 구축했습니다. 작전 명령을 하달하십시오.`,
+      }
+
+      addLog(
+        next,
+        `[선전포고] ${target.name} 정벌 원정 개시`,
+        `변경백의 군세가 국경을 넘어 ${target.name}에 대한 전면 원정에 돌입했습니다. 전비를 투입하고 교역을 단절했습니다. 다음 달 결산 전까지 작전 명령을 결정하십시오.`,
+        'danger',
+      )
+      return next
+    })
+  }
+
+  const selectCampaignOrder = (orderId: CampaignOrderId) => {
+    setState((previous) => {
+      if (!previous.activeCampaign) return previous
+      const orderDef = CAMPAIGN_ORDERS.find((o) => o.id === orderId)
+      if (!orderDef) return previous
+      if (orderDef.requiresProgress && previous.activeCampaign.progress < orderDef.requiresProgress) return previous
+      if (
+        previous.resources.treasury < orderDef.costs.treasury ||
+        previous.resources.grain < orderDef.costs.grain ||
+        previous.resources.iron < orderDef.costs.iron ||
+        previous.resources.timber < orderDef.costs.timber
+      )
+        return previous
+
+      const next = structuredClone(previous)
+      if (next.activeCampaign) {
+        next.activeCampaign.selectedOrder = orderId
+      }
+      return next
+    })
+  }
+
+  const withdrawCampaign = () => {
+    setState((previous) => {
+      if (!previous.activeCampaign) return previous
+      const next = structuredClone(previous)
+      const campaign = previous.activeCampaign
+      const target = next.neighbors.find((n) => n.id === campaign.targetId)
+
+      next.stability = clamp(next.stability - 2, 0, 100)
+      if (target) {
+        target.relation = clamp(target.relation - 4, -100, 100)
+      }
+
+      addLog(
+        next,
+        `[원정 철수] ${campaign.targetName} 전선 철수`,
+        `전선 사령부가 안전한 철수를 단행했습니다. 영지 안정도가 소폭 하락했으나 영유권 명분은 유지되므로 군세를 수습한 후 재도전할 수 있습니다. (누적 전사자: 상비군 ${campaign.lostSoldiers}명, 징집병 ${campaign.lostLevies}명)`,
+        'neutral',
+      )
+
+      next.activeCampaign = null
       return next
     })
   }
@@ -208,6 +292,20 @@ export function useRealmState() {
   const advanceMonth = () => {
     setState((previous) => {
       if (previous.pendingWorldEvent) return previous
+      if (previous.activeCampaign) {
+        const activeCampaign = previous.activeCampaign
+        if (!activeCampaign.selectedOrder) return previous
+        const orderDef = CAMPAIGN_ORDERS.find((o) => o.id === activeCampaign.selectedOrder)
+        if (!orderDef) return previous
+        if (
+          previous.resources.treasury < orderDef.costs.treasury ||
+          previous.resources.grain < orderDef.costs.grain ||
+          previous.resources.iron < orderDef.costs.iron ||
+          previous.resources.timber < orderDef.costs.timber
+        ) {
+          return previous
+        }
+      }
 
       const next = structuredClone(previous)
       const hasBureau = previous.policies.includes('royal_bureau')
@@ -242,20 +340,129 @@ export function useRealmState() {
       ]
       addLog(next, events[eventSeed][0], `${events[eventSeed][1]} 이번 달 결산: 금화 ${monthlyProjection.treasury >= 0 ? '+' : ''}${monthlyProjection.treasury}, 식량 ${monthlyProjection.grain >= 0 ? '+' : ''}${monthlyProjection.grain}.`, eventSeed === 2 ? 'danger' : 'neutral')
 
-      // Trigger deterministic world event from an unannexed neighbor
-      const worldEventResult = generateWorldEvent(next)
-      if (worldEventResult) {
-        next.pendingWorldEvent = worldEventResult.event
-        const targetNeighbor = next.neighbors.find((n) => n.id === worldEventResult.neighborId)
-        if (targetNeighbor) {
-          targetNeighbor.lastAction = worldEventResult.actionName
-          targetNeighbor.lastActionDate = `${next.year}년 ${next.month}월`
+      // CAMPAIGN RESOLUTION
+      if (next.activeCampaign && next.activeCampaign.selectedOrder) {
+        const campaign = next.activeCampaign
+        const targetIndex = next.neighbors.findIndex((n) => n.id === campaign.targetId)
+        const target = targetIndex >= 0 ? next.neighbors[targetIndex] : null
+        const orderDef = CAMPAIGN_ORDERS.find((o) => o.id === campaign.selectedOrder)
+
+        if (target && orderDef) {
+          next.resources.treasury = Math.max(0, next.resources.treasury - orderDef.costs.treasury)
+          next.resources.grain = Math.max(0, next.resources.grain - orderDef.costs.grain)
+          next.resources.iron = Math.max(0, next.resources.iron - orderDef.costs.iron)
+          next.resources.timber = Math.max(0, next.resources.timber - orderDef.costs.timber)
+
+          const armyPower = calculateArmyPower(next.soldiers, next.levies, next.policies.includes('standing_guard'))
+          const powerRatio = Math.max(0.6, armyPower / Math.max(1, target.strength * 15))
+          const seed = getDeterministicSeed(next.year, next.month, `${campaign.targetId}_${orderDef.id}`, next.soldiers)
+          const variance = (seed % 7) - 3 // -3 ~ +3
+
+          let deltaProgress = 0
+          let deltaMorale = 0
+          let deltaSupply = 0
+          let lossS = 0
+          let lossL = 0
+
+          if (orderDef.id === 'assault') {
+            deltaProgress = Math.min(45, Math.max(18, Math.round(27 + Math.min(10, (powerRatio - 1) * 8) + variance)))
+            deltaMorale = Math.max(12, Math.round(18 + Math.min(10, (powerRatio - 1) * 8) + variance))
+            deltaSupply = Math.max(15, Math.round(22 - variance))
+            lossS = Math.max(4, Math.round(16 / powerRatio + Math.abs(variance)))
+            lossL = Math.max(10, Math.round(34 / powerRatio + Math.abs(variance) * 2))
+          } else if (orderDef.id === 'siege') {
+            deltaProgress = Math.min(45, Math.max(8, Math.round(15 + Math.min(8, (powerRatio - 1) * 6) + variance)))
+            deltaMorale = Math.max(20, Math.round(30 + Math.min(12, (powerRatio - 1) * 10) + variance))
+            deltaSupply = Math.max(10, Math.round(16 - variance))
+            lossS = Math.max(2, Math.round(7 / powerRatio + Math.abs(variance)))
+            lossL = Math.max(4, Math.round(15 / powerRatio + Math.abs(variance)))
+          } else {
+            deltaProgress = Math.max(0, Math.min(6, Math.round(2 + variance)))
+            deltaMorale = Math.max(0, Math.round(4 + variance))
+            const supplyGain = Math.max(25, Math.round(32 + Math.min(8, (powerRatio - 1) * 4) + Math.abs(variance)))
+            deltaSupply = -supplyGain
+            lossS = Math.max(0, Math.round(2 + (variance > 0 ? 1 : 0)))
+            lossL = Math.max(1, Math.round(5 + Math.abs(variance)))
+          }
+
+          campaign.progress = Math.min(100, Math.max(0, campaign.progress + deltaProgress))
+          campaign.enemyMorale = Math.max(0, campaign.enemyMorale - deltaMorale)
+          if (deltaSupply < 0) {
+            campaign.supply = Math.min(100, campaign.supply - deltaSupply)
+          } else {
+            campaign.supply = Math.max(0, campaign.supply - deltaSupply)
+          }
+
+          const actualLossS = Math.min(next.soldiers, lossS)
+          const actualLossL = Math.min(next.levies, lossL)
+          next.soldiers -= actualLossS
+          next.levies -= actualLossL
+          campaign.lostSoldiers += actualLossS
+          campaign.lostLevies += actualLossL
+
+          campaign.campaignTurn += 1
+          campaign.selectedOrder = null
+
+          if (campaign.progress >= 80 || campaign.enemyMorale <= 25) {
+            campaign.phase = '적 거점 총공세'
+          } else if (campaign.progress >= 45) {
+            campaign.phase = '거점 포위·공성'
+          } else {
+            campaign.phase = '동원 및 진격'
+          }
+
+          const report = `${campaign.campaignTurn - 1}개월차 ${orderDef.name} 수행: 진군도 +${deltaProgress}% (누적 ${campaign.progress}%), 적 사기 -${deltaMorale}% (잔여 ${campaign.enemyMorale}%), 보급 ${deltaSupply < 0 ? `+${-deltaSupply}%` : `-${deltaSupply}%`} (잔여 ${campaign.supply}%), 전사 상비군 ${actualLossS}명·징집병 ${actualLossL}명.`
+          campaign.lastReport = report
+          addLog(next, `[전황 보고] ${target.name} 전선`, report, orderDef.id === 'resupply' ? 'neutral' : 'danger')
+
+          if (campaign.progress >= 100 || campaign.enemyMorale <= 0) {
+            target.annexed = true
+            target.claim = false
+            target.tradeActive = false
+            next.population += target.strength * 95
+            next.manpower += target.strength * 8
+            next.autonomy = clamp(next.autonomy + 5, 0, 100)
+            next.stability = clamp(next.stability - 4, 0, 100)
+            next.royalFavor = clamp(next.royalFavor - 8, 0, 100)
+
+            addLog(
+              next,
+              `[원정 승리] ${target.name} 완전 병합`,
+              `총 ${campaign.campaignTurn - 1}개월에 걸친 혈전 끝에 ${target.name}의 거점을 완전히 함락시켰습니다. 영토가 에르덴 직속령으로 병합되었으며 인구와 인력이 에르덴으로 편입되었습니다. (총 누적 전사자: 상비군 ${campaign.lostSoldiers}명, 징집병 ${campaign.lostLevies}명)`,
+              'good',
+            )
+            next.activeCampaign = null
+          } else if (campaign.supply <= 0 || next.soldiers + next.levies < 80) {
+            next.stability = clamp(next.stability - 8, 0, 100)
+            next.legitimacy = clamp(next.legitimacy - 6, 0, 100)
+            target.relation = clamp(target.relation - 15, -100, 100)
+
+            addLog(
+              next,
+              `[원정 패퇴] ${target.name} 전선 붕괴`,
+              `${campaign.supply <= 0 ? '원정군의 보급선이 고갈되어' : '극심한 병력 손실로 전선을 지탱하지 못하고'} 참패하여 철수했습니다. 영지의 안정도와 정통성에 타격을 입었습니다. (총 누적 전사자: 상비군 ${campaign.lostSoldiers}명, 징집병 ${campaign.lostLevies}명)`,
+              'danger',
+            )
+            next.activeCampaign = null
+          }
+        }
+      } else {
+        // Trigger deterministic world event from an unannexed neighbor only when no active campaign
+        const worldEventResult = generateWorldEvent(next)
+        if (worldEventResult) {
+          next.pendingWorldEvent = worldEventResult.event
+          const targetNeighbor = next.neighbors.find((n) => n.id === worldEventResult.neighborId)
+          if (targetNeighbor) {
+            targetNeighbor.lastAction = worldEventResult.actionName
+            targetNeighbor.lastActionDate = `${next.year}년 ${next.month}월`
+          }
         }
       }
 
       return next
     })
   }
+
 
   const resolveWorldEvent = (choiceId: string) => {
     setState((previous) => {
@@ -347,6 +554,8 @@ export function useRealmState() {
     callLevies,
     diplomaticAction,
     launchCampaign,
+    selectCampaignOrder,
+    withdrawCampaign,
     advanceMonth,
     resolveWorldEvent,
     resetRealm,

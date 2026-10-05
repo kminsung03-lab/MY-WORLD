@@ -2184,6 +2184,23 @@ body {
   color: #fbbf24 !important;
 }
 
+.nation-detail-card.war-active-card {
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  background: linear-gradient(150deg, #1c0f0f 0%, #120909 100%);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+}
+
+.nation-title.text-red {
+  color: #f87171 !important;
+}
+
+.neighbor-status-pill.war-active {
+  background: rgba(220, 38, 38, 0.22);
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+
 .map-nation-legend {
   display: grid;
   grid-template-columns: repeat(12, minmax(80px, 1fr));
@@ -2472,6 +2489,8 @@ body {
 .realm-meter.gold i { background: #c49a4c; }
 .realm-meter.blue i { background: #548a9b; }
 .realm-meter.purple i { background: #8c719f; }
+.realm-meter.red i { background: #e05252; box-shadow: 0 0 6px rgba(224, 82, 82, .35); }
+
 
 .realm-directive { margin: 15px; padding: 15px 16px; background: linear-gradient(90deg, rgba(65, 53, 31, .36), rgba(21, 31, 34, .3)); border: 1px solid #51452d; position: relative; }
 .realm-directive > span { color: #a78f5f; font-size: 9px; font-weight: 900; letter-spacing: .14em; }
@@ -2849,6 +2868,335 @@ body {
   font-style: italic;
 }
 
+/* ==========================================================================
+   Active War Campaign Dashboard & Orders
+   ========================================================================== */
+
+.active-campaign-dashboard {
+  background:
+    radial-gradient(ellipse at 90% 10%, rgba(220, 38, 38, 0.16), transparent 50%),
+    linear-gradient(145deg, #1e1313 0%, #120b0b 100%);
+  border: 1px solid #8e3535;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(239, 68, 68, 0.08);
+  padding: 18px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 18px;
+  border-radius: 4px;
+}
+
+.campaign-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid #3d2323;
+  padding-bottom: 12px;
+}
+
+.campaign-kicker {
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.campaign-header-title h2 {
+  margin: 3px 0 2px;
+  font-family: Georgia, 'Noto Serif KR', serif;
+  font-size: 22px;
+  color: #fee2e2;
+  font-weight: 600;
+}
+
+.campaign-header-title p {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.campaign-header-title p strong {
+  color: #fca5a5;
+}
+
+.btn-withdraw-campaign {
+  padding: 8px 14px;
+  color: #fca5a5;
+  background: #2b1414;
+  border: 1px solid #7f1d1d;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-withdraw-campaign:hover {
+  background: #3f1919;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.campaign-stat-gauges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.campaign-gauge-card {
+  background: #140d0d;
+  border: 1px solid #331c1c;
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.campaign-gauge-card span {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 700;
+}
+
+.campaign-gauge-card strong {
+  font-size: 20px;
+  font-family: Georgia, serif;
+  color: #fef2f2;
+}
+
+.campaign-gauge-card strong.loss-val {
+  font-size: 13px;
+  color: #f87171;
+}
+
+.campaign-gauge-card small {
+  font-size: 9px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.campaign-last-report {
+  background: #100a0a;
+  border: 1px dashed #4b2323;
+  border-radius: 4px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #f87171;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.report-text {
+  margin: 0;
+  font-size: 12px;
+  color: #d1d5db;
+  line-height: 1.5;
+}
+
+.campaign-orders-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.orders-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orders-section-header small {
+  font-size: 9px;
+  font-weight: 800;
+  color: #f87171;
+  letter-spacing: 0.15em;
+}
+
+.orders-section-header h3 {
+  margin: 2px 0 0;
+  font-size: 16px;
+  color: #fef2f2;
+  font-family: Georgia, 'Noto Serif KR', serif;
+}
+
+.selected-order-chip {
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.selected-order-chip.confirmed {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid #059669;
+}
+
+.selected-order-chip.pending {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid #b91c1c;
+  animation: crisis-pulse 1.8s infinite;
+}
+
+.campaign-orders-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.campaign-order-card {
+  background: linear-gradient(145deg, #160e0e, #0e0909);
+  border: 1px solid #381e1e;
+  border-radius: 4px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 9px;
+  transition: all 0.2s ease;
+}
+
+.campaign-order-card:hover:not(.disabled) {
+  border-color: #a84242;
+  background: linear-gradient(145deg, #201313, #130b0b);
+}
+
+.campaign-order-card.selected {
+  border-color: #059669;
+  background: linear-gradient(145deg, #10261d, #0b1a14);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.18);
+}
+
+.campaign-order-card.disabled {
+  opacity: 0.55;
+  border-color: #271717;
+}
+
+.order-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-icon {
+  font-size: 24px;
+}
+
+.order-card-header h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #fee2e2;
+  font-family: Georgia, 'Noto Serif KR', serif;
+}
+
+.order-character {
+  display: block;
+  font-size: 10px;
+  color: #f87171;
+  margin-top: 2px;
+}
+
+.campaign-order-card.selected .order-character {
+  color: #6ee7b7;
+}
+
+.order-desc {
+  margin: 0;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.45;
+}
+
+.order-costs {
+  background: #0d0808;
+  border: 1px dashed #361b1b;
+  border-radius: 3px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.costs-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: #f87171;
+  text-transform: uppercase;
+}
+
+.costs-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: #e5e7eb;
+}
+
+.btn-order-select {
+  padding: 8px 10px;
+  color: #fee2e2;
+  background: #3b1616;
+  border: 1px solid #7f1d1d;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-order-select:hover:not(:disabled) {
+  background: #501d1d;
+  border-color: #ef4444;
+}
+
+.btn-order-select.is-selected {
+  background: #065f46;
+  border-color: #10b981;
+  color: #d1fae5;
+  cursor: default;
+}
+
+.btn-order-select:disabled:not(.is-selected) {
+  background: #1b1010;
+  border-color: #2e1b1b;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+/* Neighbor card at-war styles */
+.neighbor-card.at-war {
+  border-color: #b91c1c;
+  box-shadow: inset 3px 0 #ef4444, 0 0 16px rgba(239, 68, 68, 0.14);
+}
+
+.neighbor-tags .war-tag {
+  color: #fca5a5;
+  background: rgba(185, 28, 28, 0.25);
+  border-color: #dc2626;
+  font-weight: 800;
+}
+
+.neighbor-actions .war-active-btn {
+  background: #2b1111;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+  font-weight: 800;
+  cursor: not-allowed;
+}
+
 @media (max-width: 1050px) {
   .realm-resource-bar { grid-template-columns: repeat(4, 1fr); }
   .realm-resource-bar > div:nth-child(4) { border-right: 0; }
@@ -2859,6 +3207,8 @@ body {
   .policy-branch > header { min-height: 0; }
   .policy-node { margin: 10px; }
   .policy-connector { display: none; }
+  .campaign-stat-gauges { grid-template-columns: repeat(2, 1fr); }
+  .campaign-orders-grid { grid-template-columns: 1fr; }
   .diplomacy-layout { grid-template-columns: 1fr; }
   .army-panel { position: static; }
 }
@@ -2878,6 +3228,7 @@ body {
   .realm-stat-grid > div { border-right: 1px solid #243239 !important; }
   .world-response-panel { grid-column: 1; }
   .world-response-choices { grid-template-columns: 1fr; }
+  .campaign-stat-gauges { grid-template-columns: 1fr; }
   .realm-news-list { grid-template-columns: 1fr; }
   .realm-news { border-right: 0; border-bottom: 1px solid #26353b; }
   .industry-grid { grid-template-columns: 1fr; }

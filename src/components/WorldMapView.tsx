@@ -104,10 +104,25 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
   const selectedAnnexedInfo = strategicProvinces.get(selectedProvince.id)
   const isSelectedAnnexed = selectedAnnexedInfo?.neighbor.annexed === true
 
+  const activeCampaign = realmState.activeCampaign
+  const campaignTargetProvince = useMemo(() => {
+    if (!activeCampaign) return null
+    const coord = STRATEGIC_TARGET_COORDINATES[activeCampaign.targetId]
+    if (!coord) return null
+    return findStrategicTargetProvince(coord, PROVINCES)
+  }, [activeCampaign])
+  const isSelectedWarTarget = !!(
+    activeCampaign &&
+    campaignTargetProvince &&
+    selectedProvince.id === campaignTargetProvince.id &&
+    !annexedProvinceIds.has(campaignTargetProvince.id)
+  )
+
   const mappedNeighborId = NATION_TO_NEIGHBOR_MAP[selectedNation.id]
   const matchedNeighbor = mappedNeighborId
     ? realmState.neighbors.find((neighbor) => neighbor.id === mappedNeighborId)
     : undefined
+
 
   const fitMap = useCallback(() => {
     const element = containerRef.current
@@ -242,8 +257,11 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
         ctx.beginPath()
         tracePolygon(ctx, province.vertices)
         const isAnnexed = annexedProvinceIds.has(province.id)
+        const isWarTarget = !!(activeCampaign && campaignTargetProvince?.id === province.id && !isAnnexed)
         if (isAnnexed) {
           ctx.fillStyle = '#0f766e' // 에르덴 통치색 (짙은 청록)
+        } else if (isWarTarget) {
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.42)' // 진행 중 목표 프로빈스 붉은 반투명
         } else {
           ctx.fillStyle = province.color
         }
@@ -255,12 +273,16 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
         if (isAnnexed) {
           ctx.strokeStyle = '#f59e0b'
           ctx.lineWidth = 2.4 / zoom
+        } else if (isWarTarget) {
+          ctx.strokeStyle = '#ef4444' // 선명한 붉은 국경
+          ctx.lineWidth = 3.2 / zoom
         } else {
           ctx.strokeStyle = 'rgba(32, 43, 47, .55)'
           ctx.lineWidth = 1.15 / zoom
         }
         ctx.stroke()
       })
+
 
       // Soft terrain washes, deliberately subtle so ownership remains clear.
       const terrain = ctx.createLinearGradient(450, 260, 1780, 1210)
@@ -376,6 +398,53 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       ctx.restore()
     })
 
+    // Active Campaign Front Line (본령 -> 목표 전선 붉은 점선 및 교차 검/진군 라벨)
+    if (activeCampaign && campaignTargetProvince && !annexedProvinceIds.has(campaignTargetProvince.id)) {
+      const p0 = playerFief.center
+      const p1 = campaignTargetProvince.center
+      const midX = (p0[0] + p1[0]) / 2
+      const midY = (p0[1] + p1[1]) / 2
+
+      ctx.save()
+
+      // Red ambient glow under the war front
+      ctx.beginPath()
+      ctx.moveTo(p0[0], p0[1])
+      ctx.lineTo(p1[0], p1[1])
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)'
+      ctx.lineWidth = 6 / zoom
+      ctx.stroke()
+
+      // Red dashed front line
+      ctx.beginPath()
+      ctx.moveTo(p0[0], p0[1])
+      ctx.lineTo(p1[0], p1[1])
+      ctx.setLineDash([8 / zoom, 5 / zoom])
+      ctx.strokeStyle = '#ef4444'
+      ctx.lineWidth = 2.8 / zoom
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Crossed swords icon and progress label badge
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)'
+      ctx.strokeStyle = '#ef4444'
+      ctx.lineWidth = 1.6 / zoom
+      const badgeW = 160 / zoom
+      const badgeH = 26 / zoom
+      ctx.beginPath()
+      ctx.roundRect(midX - badgeW / 2, midY - badgeH / 2, badgeW, badgeH, 4 / zoom)
+      ctx.fill()
+      ctx.stroke()
+
+      ctx.font = `bold ${11 / zoom}px ${FONT_STACK}`
+      ctx.fillStyle = '#fca5a5'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(`⚔️ ${activeCampaign.phase} (${activeCampaign.progress}%)`, midX, midY)
+
+      ctx.restore()
+    }
+
     // Annexed Dominion Markers (에르덴 통치령 금색 국경 강조 및 깃발/병합 표시)
     annexedProvinces.forEach(({ province }) => {
       ctx.save()
@@ -460,15 +529,17 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       if (land) { ctx.beginPath(); tracePolygon(ctx, land.points); ctx.clip() }
       ctx.beginPath(); tracePolygon(ctx, province.vertices)
       const isAnnexed = annexedProvinceIds.has(province.id)
-      ctx.strokeStyle = province.isPlayerFief ? '#fef08a' : isAnnexed ? '#fbbf24' : '#ffffff'
+      const isWarTarget = !!(activeCampaign && campaignTargetProvince?.id === province.id && !isAnnexed)
+      ctx.strokeStyle = province.isPlayerFief ? '#fef08a' : isAnnexed ? '#fbbf24' : isWarTarget ? '#ef4444' : '#ffffff'
       ctx.lineWidth = (province.isPlayerFief ? 5 : 4) / zoom
-      ctx.shadowColor = province.isPlayerFief ? '#f59e0b' : isAnnexed ? '#d97706' : '#38bdf8'
+      ctx.shadowColor = province.isPlayerFief ? '#f59e0b' : isAnnexed ? '#d97706' : isWarTarget ? '#ef4444' : '#38bdf8'
       ctx.shadowBlur = 12 / zoom
       ctx.stroke(); ctx.restore()
     })
 
     ctx.restore()
-  }, [canvasSize, gameState, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds])
+  }, [canvasSize, gameState, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds, activeCampaign, campaignTargetProvince])
+
 
   const focusNation = (nation: Nation) => {
     const point = NATION_LABEL_POINTS[nation.id]
@@ -632,7 +703,53 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
             )}
           </div>
 
-          {isSelectedAnnexed && selectedAnnexedInfo ? (
+          {isSelectedWarTarget && activeCampaign ? (
+            <div className="nation-detail-card war-active-card">
+              <div className="inspector-header">
+                <span className="atlas-kicker">전역 교전 현황</span>
+                <span className="neighbor-status-pill war-active">⚔️ 에르덴 원정군과 교전 중</span>
+              </div>
+              <h3 className="nation-title text-red">
+                ⚔️ {activeCampaign.targetName} 정벌 전선
+              </h3>
+              <p className="nation-description">
+                에르덴 변경백령의 원정군이 국경을 넘어 침공하여 치열한 전투가 벌어지고 있는 격전지입니다.
+                사령부의 작전 명령에 따라 진군도, 적 사기, 보급선이 매달 실시간으로 변동합니다.
+              </p>
+              <div className="nation-meta-list">
+                <div className="meta-item">
+                  <span className="meta-k">작전 단계</span>
+                  <span className="meta-v text-amber">{activeCampaign.phase} ({activeCampaign.campaignTurn}개월차)</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">원정 진군도</span>
+                  <span className="meta-v text-good">{activeCampaign.progress}% (100% 도달 시 함락)</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">적군 잔여 사기</span>
+                  <span className="meta-v text-danger">{activeCampaign.enemyMorale}% (0% 도달 시 항복)</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">원정군 보급선</span>
+                  <span className="meta-v text-cyan">{activeCampaign.supply}%</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">누적 전사자</span>
+                  <span className="meta-v">상비 {activeCampaign.lostSoldiers}명 · 징집 {activeCampaign.lostLevies}명</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">최근 전황 보고</span>
+                  <span className="meta-v text-muted">{activeCampaign.lastReport || '작전 하달 대기 중'}</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-k">지도상 권역</span>
+                  <span className="meta-v text-muted">
+                    {selectedNation.emblem} {selectedNation.name} ({selectedNation.typeLabel})
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : isSelectedAnnexed && selectedAnnexedInfo ? (
             <div className="nation-detail-card annexed-political-card">
               <div className="inspector-header">
                 <span className="atlas-kicker">통치령 정치 현황</span>
@@ -641,6 +758,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
               <h3 className="nation-title text-gold">
                 🚩 에르덴 직속 통치령
               </h3>
+
               <p className="nation-description">
                 군사 원정 및 외교적 결단으로 에르덴 변경백령에 복속된 직할 영지입니다.
                 현지 행정과 방어선이 변경백 직속 수비대와 관료에 의해 통제되며, 생산되는 조세와 인력이 에르덴 본령으로 귀속됩니다.

@@ -1,4 +1,4 @@
-import type { Doctrine, IndustryId, PolicyId, RealmState } from '../types/realm'
+import type { CampaignOrderId, Doctrine, IndustryId, PolicyId, RealmState } from '../types/realm'
 
 export interface IndustryDefinition {
   id: IndustryId
@@ -131,6 +131,49 @@ export const POLICIES: PolicyDefinition[] = [
   },
 ]
 
+export interface CampaignOrderDefinition {
+  id: CampaignOrderId
+  name: string
+  icon: string
+  description: string
+  character: string
+  costs: {
+    treasury: number
+    grain: number
+    iron: number
+    timber: number
+  }
+  requiresProgress?: number
+}
+
+export const CAMPAIGN_ORDERS: CampaignOrderDefinition[] = [
+  {
+    id: 'assault',
+    name: '정면 공세',
+    icon: '⚔️',
+    description: '적의 외곽 방어선과 주력 부대를 향해 상비군과 징집병을 총동원해 돌격합니다.',
+    character: '신속한 진군 · 적 사기 감소 · 큰 보급 소모 및 높은 사상자 발생',
+    costs: { treasury: 20, grain: 25, iron: 10, timber: 0 },
+  },
+  {
+    id: 'siege',
+    name: '포위·공성',
+    icon: '🏰',
+    description: '거점을 완전 봉쇄하고 투석기와 공성구를 조립해 적 요새의 항복을 압박합니다.',
+    character: '적 사기 대폭 감소 · 안정적 진군 · 중간 보급 소모 및 낮은 사상자',
+    costs: { treasury: 15, grain: 20, iron: 0, timber: 15 },
+    requiresProgress: 45,
+  },
+  {
+    id: 'resupply',
+    name: '보급선 정비',
+    icon: '📦',
+    description: '본령으로부터 수레와 군수물자를 호송받고 진지를 보수하며 장병을 휴식시킵니다.',
+    character: '원정 보급 대폭 회복 · 진군 정체 · 최소 사상자 및 전열 정비',
+    costs: { treasury: 25, grain: 15, iron: 0, timber: 0 },
+  },
+]
+
 export const DOCTRINE_LABELS: Record<Doctrine, string> = {
   unset: '노선 미결정',
   stewardship: '질서의 길',
@@ -183,4 +226,5 @@ export const INITIAL_REALM_STATE: RealmState = {
     },
   ],
   pendingWorldEvent: null,
+  activeCampaign: null,
 }
