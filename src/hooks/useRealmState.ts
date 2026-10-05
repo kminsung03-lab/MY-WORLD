@@ -6,15 +6,19 @@ import {
   POLICIES,
   TRADE_CONTRACTS,
   calculateArmyPower,
+  evaluateGovernedTerritories,
   evaluateTradeRoutes,
 } from '../constants/realmData'
 import { generateWorldEvent, getDeterministicSeed } from '../constants/worldEvents'
 import type {
+  AnnexedTerritoryGovernance,
   CampaignOrderId,
   Doctrine,
+  GovernanceMode,
   IndustryId,
   PolicyId,
   RealmLog,
+  RealmResources,
   RealmState,
   TradeContractId,
 } from '../types/realm'
@@ -39,23 +43,55 @@ export function useRealmState() {
       if (saved) {
         const parsed = JSON.parse(saved)
         const initial = cloneInitialState()
+        const migratedNeighbors = (parsed.neighbors || initial.neighbors).map((savedN: any, idx: number) => {
+          const fallback = initial.neighbors.find((n) => n.id === savedN.id) || initial.neighbors[idx] || initial.neighbors[0]
+          const tradeActive = !!savedN.tradeActive
+          const tradeContract: TradeContractId | null =
+            savedN.tradeContract ?? (tradeActive ? 'balanced_exchange' : null)
+          return {
+            ...fallback,
+            ...savedN,
+            tradeActive,
+            tradeContract,
+            lastAction: savedN.lastAction || undefined,
+            lastActionDate: savedN.lastActionDate || undefined,
+          }
+        })
+
+        const savedGovernance = parsed.governance || {}
+        const migratedGovernance: Record<string, AnnexedTerritoryGovernance> = {}
+        for (const n of migratedNeighbors) {
+          if (n.annexed && n.id !== 'crown') {
+            const existingGov = savedGovernance[n.id]
+            if (existingGov) {
+              migratedGovernance[n.id] = {
+                neighborId: n.id,
+                governanceMode: existingGov.governanceMode || 'military_occupation',
+                loyalty: clamp(existingGov.loyalty ?? 45, 0, 100),
+                unrest: clamp(existingGov.unrest ?? 40, 0, 100),
+                integration: clamp(existingGov.integration ?? 20, 0, 100),
+                isCore: existingGov.isCore ?? (existingGov.integration >= 100),
+                lastReport: existingGov.lastReport || '기존 통치 기록을 계승했습니다.',
+              }
+            } else {
+              migratedGovernance[n.id] = {
+                neighborId: n.id,
+                governanceMode: 'military_occupation',
+                loyalty: 45,
+                unrest: 40,
+                integration: 20,
+                isCore: false,
+                lastReport: '기존 병합 영지에 대한 통치령 행정 체계를 신설했습니다.',
+              }
+            }
+          }
+        }
+
         return {
           ...initial,
           ...parsed,
-          neighbors: (parsed.neighbors || initial.neighbors).map((savedN: any, idx: number) => {
-            const fallback = initial.neighbors.find((n) => n.id === savedN.id) || initial.neighbors[idx] || initial.neighbors[0]
-            const tradeActive = !!savedN.tradeActive
-            const tradeContract: TradeContractId | null =
-              savedN.tradeContract ?? (tradeActive ? 'balanced_exchange' : null)
-            return {
-              ...fallback,
-              ...savedN,
-              tradeActive,
-              tradeContract,
-              lastAction: savedN.lastAction || undefined,
-              lastActionDate: savedN.lastActionDate || undefined,
-            }
-          }),
+          neighbors: migratedNeighbors,
+          governance: migratedGovernance,
           pendingWorldEvent: parsed.pendingWorldEvent || null,
           activeCampaign: parsed.activeCampaign || null,
         }
@@ -95,11 +131,50 @@ export function useRealmState() {
     const baseGrossIncome = Math.round((34 + farm * 6 + ironworks * 5 + market * 18 + lumber * 4) * taxBonus)
     const militaryUpkeep = Math.ceil(state.soldiers / 30) + Math.ceil(state.levies / 180) + (state.policies.includes('standing_guard') ? 8 : 0)
 
+    // Deterministic pre-month commitment reservation order:
+    // 1) Selected campaign order costs reserve first
+    const selectedOrderDef = state.activeCampaign?.selectedOrder
+      ? CAMPAIGN_ORDERS.find((o) => o.id === state.activeCampaign?.selectedOrder)
+      : null
+
+    const campaignCost: RealmResources = selectedOrderDef
+      ? {
+          treasury: selectedOrderDef.costs.treasury,
+          grain: selectedOrderDef.costs.grain,
+          iron: selectedOrderDef.costs.iron,
+          timber: selectedOrderDef.costs.timber,
+        }
+      : { treasury: 0, grain: 0, iron: 0, timber: 0 }
+
+    const resourcesForTrade: RealmResources = {
+      treasury: Math.max(0, state.resources.treasury - campaignCost.treasury),
+      grain: Math.max(0, state.resources.grain - campaignCost.grain),
+      iron: Math.max(0, state.resources.iron - campaignCost.iron),
+      timber: Math.max(0, state.resources.timber - campaignCost.timber),
+    }
+
+    // 2) Trade route costs evaluate against remaining pre-month resources
     const tradeEval = evaluateTradeRoutes(
       state.neighbors,
-      state.resources,
+      resourcesForTrade,
       state.policies,
       state.activeCampaign?.targetId,
+    )
+
+    // 3) Governance / cultural-integration costs evaluate against remaining resources
+    // after campaign cost plus actual active trade costs
+    const resourcesForDominion: RealmResources = {
+      treasury: Math.max(0, resourcesForTrade.treasury - tradeEval.totalCosts.treasury),
+      grain: Math.max(0, resourcesForTrade.grain - tradeEval.totalCosts.grain),
+      iron: Math.max(0, resourcesForTrade.iron - tradeEval.totalCosts.iron),
+      timber: Math.max(0, resourcesForTrade.timber - tradeEval.totalCosts.timber),
+    }
+
+    const dominionEval = evaluateGovernedTerritories(
+      state.neighbors,
+      state.governance,
+      resourcesForDominion,
+      state.policies,
     )
 
     const baseGrain = farm * 18 - Math.ceil((state.population + state.soldiers) / 850)
@@ -107,12 +182,12 @@ export function useRealmState() {
     const baseTimber = lumber * 10
 
     return {
-      treasury: baseGrossIncome + tradeEval.totalNet.treasury - militaryUpkeep,
+      treasury: baseGrossIncome + tradeEval.totalNet.treasury + dominionEval.totalNet.treasury - militaryUpkeep,
       grossIncome: baseGrossIncome,
       militaryUpkeep,
-      grain: baseGrain + tradeEval.totalNet.grain,
-      iron: baseIron + tradeEval.totalNet.iron,
-      timber: baseTimber + tradeEval.totalNet.timber,
+      grain: baseGrain + tradeEval.totalNet.grain + dominionEval.totalNet.grain,
+      iron: baseIron + tradeEval.totalNet.iron + dominionEval.totalNet.iron,
+      timber: baseTimber + tradeEval.totalNet.timber + dominionEval.totalNet.timber,
       baseIndustryIncome: baseGrossIncome,
       baseGrain,
       baseIron,
@@ -120,6 +195,16 @@ export function useRealmState() {
       activeTrades: tradeEval.activeCount,
       suspendedTrades: tradeEval.suspendedCount,
       tradeEvaluation: tradeEval,
+      dominionEvaluation: dominionEval,
+      dominionNet: dominionEval.totalNet,
+      dominionCosts: dominionEval.totalCosts,
+      dominionYields: dominionEval.totalYields,
+      coreDominionCount: dominionEval.coreCount,
+      highRiskDominionCount: dominionEval.highRiskCount,
+      stalledDominionCount: dominionEval.stalledCount,
+      campaignCost,
+      resourcesForTrade,
+      resourcesForDominion,
     }
   }, [state])
 
@@ -248,6 +333,34 @@ export function useRealmState() {
         `${target.name} 교역 계약 갱신`,
         `교역 계약을 [${contractDef.name}]으로 변경했습니다. 다음 달부터 변경된 수급 조건이 적용됩니다. (외교력 1, 금화 10 소모)`,
         'neutral',
+      )
+      return next
+    })
+  }
+
+  const changeGovernanceMode = (neighborId: string, mode: GovernanceMode) => {
+    setState((previous) => {
+      const target = previous.neighbors.find((n) => n.id === neighborId)
+      if (!target || !target.annexed || target.id === 'crown') return previous
+      const currentGov = previous.governance[neighborId]
+      if (!currentGov || currentGov.governanceMode === mode) return previous
+      if (previous.capacities.administration < 1 || previous.resources.treasury < 20) return previous
+
+      const next = structuredClone(previous)
+      next.capacities.administration -= 1
+      next.resources.treasury -= 20
+      next.governance[neighborId].governanceMode = mode
+
+      const modeNames: Record<GovernanceMode, string> = {
+        military_occupation: '군정 점령',
+        local_autonomy: '자치 인정',
+        cultural_integration: '문화 통합',
+      }
+      addLog(
+        next,
+        `[통치령 칙령] ${target.name} 통치 방침 변경`,
+        `통치 방침을 [${modeNames[mode]}](으)로 전환했습니다. 현지 관료와 주둔군에 새로운 칙령이 하달되었습니다. (행정력 1, 금화 20 소모)`,
+        'royal',
       )
       return next
     })
@@ -502,6 +615,18 @@ export function useRealmState() {
             next.stability = clamp(next.stability - 4, 0, 100)
             next.royalFavor = clamp(next.royalFavor - 8, 0, 100)
 
+            const initialLoyalty = clamp(45 - Math.min(15, (campaign.campaignTurn - 1) * 2), 15, 60)
+            const initialUnrest = clamp(45 + Math.min(25, Math.floor((campaign.lostSoldiers + campaign.lostLevies) / 10)), 30, 75)
+            next.governance[target.id] = {
+              neighborId: target.id,
+              governanceMode: 'military_occupation',
+              loyalty: initialLoyalty,
+              unrest: initialUnrest,
+              integration: 12,
+              isCore: false,
+              lastReport: `${target.name} 함락 직후 군정 점령이 개시되었습니다. 주둔군이 치안을 확보 중이나 주민들의 반발과 소요 위험이 높습니다.`,
+            }
+
             addLog(
               next,
               `[원정 승리] ${target.name} 완전 병합`,
@@ -533,6 +658,84 @@ export function useRealmState() {
             targetNeighbor.lastAction = worldEventResult.actionName
             targetNeighbor.lastActionDate = `${next.year}년 ${next.month}월`
           }
+        }
+      }
+
+      // MONTHLY GOVERNANCE RESOLUTION
+      const dominionEval = monthlyProjection.dominionEvaluation
+      const rebelTerritoryIds: string[] = []
+
+      for (const neighbor of next.neighbors) {
+        if (!neighbor.annexed || neighbor.id === 'crown') continue
+        const gov = next.governance[neighbor.id]
+        if (!gov) continue
+
+        const evalItem = dominionEval.evaluations.find((e) => e.neighborId === neighbor.id)
+        if (!evalItem) continue
+
+        gov.loyalty = clamp(gov.loyalty + evalItem.deltaLoyalty, 0, 100)
+        gov.unrest = clamp(gov.unrest + evalItem.deltaUnrest, 0, 100)
+        gov.integration = clamp(gov.integration + evalItem.deltaIntegration, 0, 100)
+
+        if (gov.isCore) {
+          gov.lastReport = '완전 통합된 핵심 직할령으로서 에르덴의 안정적인 영토가 되었습니다.'
+        } else if (evalItem.isStalled) {
+          gov.lastReport = evalItem.stalledReason || '국고 부족으로 문화 통합 사업이 중단되어 불안이 가중되었습니다.'
+          addLog(
+            next,
+            `통합 사업 중단: ${neighbor.name}`,
+            `국고 부족으로 ${neighbor.name}의 문화 통합 사업이 이번 달 중단되었으며, 현지 주민들의 불만이 고조되었습니다. (불안 +${evalItem.deltaUnrest})`,
+            'danger',
+          )
+        } else if (gov.governanceMode === 'military_occupation') {
+          gov.lastReport = `군정 주둔군이 강제 징발을 집행했습니다. (충성 ${evalItem.deltaLoyalty}, 불안 +${evalItem.deltaUnrest})`
+        } else if (gov.governanceMode === 'local_autonomy') {
+          gov.lastReport = `현지 자치 의회의 안정이 유지되고 있습니다. (충성 +${evalItem.deltaLoyalty}, 불안 ${evalItem.deltaUnrest})`
+        } else {
+          gov.lastReport = `문화 통합 사업이 순조롭게 진행되었습니다. (통합도 +${evalItem.deltaIntegration}, 충성 +${evalItem.deltaLoyalty})`
+        }
+
+        if (gov.integration >= 100 && !gov.isCore) {
+          gov.isCore = true
+          addLog(
+            next,
+            `[완전 통합] ${neighbor.name} 본령 편입`,
+            `행정·문화 통합이 100% 완료되어 ${neighbor.name}이(가) 영지의 영구적인 핵심 직할령(Core)으로 편입되었습니다. 안정된 생산과 세수를 보장합니다.`,
+            'royal',
+          )
+        }
+
+        // Check rebellion trigger
+        if (gov.loyalty <= 0 || gov.unrest >= 100) {
+          rebelTerritoryIds.push(neighbor.id)
+        }
+      }
+
+      // Process rebellions
+      for (const rebelId of rebelTerritoryIds) {
+        const rebelNeighbor = next.neighbors.find((n) => n.id === rebelId)
+        if (!rebelNeighbor) continue
+
+        rebelNeighbor.annexed = false
+        delete next.governance[rebelId]
+        rebelNeighbor.tradeActive = false
+        rebelNeighbor.tradeContract = null
+        rebelNeighbor.claim = true
+        rebelNeighbor.relation = clamp(rebelNeighbor.relation - 50, -100, -30)
+        rebelNeighbor.strength = Math.max(35, rebelNeighbor.strength + 8)
+
+        next.stability = clamp(next.stability - 12, 0, 100)
+        next.legitimacy = clamp(next.legitimacy - 10, 0, 100)
+
+        addLog(
+          next,
+          `[반란 독립] ${rebelNeighbor.name} 무장 봉기`,
+          `충성도 고갈과 주민들의 폭동으로 ${rebelNeighbor.name}이(가) 에르덴의 통치를 거부하고 무장 봉기를 일으켜 독립했습니다! 군세를 재건하고 적대 관계로 돌아섰습니다. (안정도 -12, 정통성 -10, 영유권 명분 유지)`,
+          'danger',
+        )
+
+        if (next.activeCampaign?.targetId === rebelId) {
+          next.activeCampaign = null
         }
       }
 
@@ -637,6 +840,7 @@ export function useRealmState() {
     advanceMonth,
     resolveWorldEvent,
     resetRealm,
+    changeGovernanceMode,
   }
 }
 

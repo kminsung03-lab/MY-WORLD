@@ -117,6 +117,54 @@ export interface ActiveCampaign {
   lastReport?: string
 }
 
+export type GovernanceMode =
+  | 'military_occupation'
+  | 'local_autonomy'
+  | 'cultural_integration'
+
+export type RebellionRiskTier = '안정' | '주의' | '경고' | '반란 임박'
+
+export interface AnnexedTerritoryGovernance {
+  neighborId: string
+  governanceMode: GovernanceMode
+  loyalty: number // 0 - 100
+  unrest: number // 0 - 100
+  integration: number // 0 - 100
+  isCore: boolean
+  lastReport?: string
+}
+
+export interface GovernedTerritoryEvaluation {
+  neighborId: string
+  neighborName: string
+  specialty: string
+  mode: GovernanceMode
+  loyalty: number
+  unrest: number
+  integration: number
+  isCore: boolean
+  isFunded: boolean
+  isStalled: boolean
+  stalledReason?: string
+  costs: RealmResources
+  yields: RealmResources
+  net: RealmResources
+  deltaLoyalty: number
+  deltaUnrest: number
+  deltaIntegration: number
+  rebellionRiskTier: RebellionRiskTier
+}
+
+export interface DominionGovernanceSummary {
+  evaluations: GovernedTerritoryEvaluation[]
+  totalCosts: RealmResources
+  totalYields: RealmResources
+  totalNet: RealmResources
+  coreCount: number
+  highRiskCount: number
+  stalledCount: number
+}
+
 export interface RealmLog {
   id: string
   date: string
@@ -145,6 +193,7 @@ export interface RealmState {
   autonomy: number
   royalFavor: number
   neighbors: NeighborRealm[]
+  governance: Record<string, AnnexedTerritoryGovernance>
   logs: RealmLog[]
   pendingWorldEvent?: WorldEvent | null
   activeCampaign?: ActiveCampaign | null

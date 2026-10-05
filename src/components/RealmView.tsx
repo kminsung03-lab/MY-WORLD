@@ -2,16 +2,23 @@ import { useMemo, useState } from 'react'
 import {
   CAMPAIGN_ORDERS,
   DOCTRINE_LABELS,
+  GOVERNANCE_MODES,
   INDUSTRIES,
   POLICIES,
+  TERRITORY_PROFILES,
   TRADE_CONTRACTS,
   calculateArmyPower,
   calculateNeighborEfficiency,
 } from '../constants/realmData'
 import type { RealmHandle } from '../hooks/useRealmState'
-import type { IndustryId, NeighborRealm, PolicyId, TradeContractId } from '../types/realm'
+import type {
+  IndustryId,
+  NeighborRealm,
+  PolicyId,
+  TradeContractId,
+} from '../types/realm'
 
-type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy'
+type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy' | 'dominion'
 
 const doctrineLabels = DOCTRINE_LABELS
 
@@ -85,6 +92,7 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     callLevies,
     diplomaticAction,
     changeTradeContract,
+    changeGovernanceMode,
     launchCampaign,
     selectCampaignOrder,
     withdrawCampaign,
@@ -192,6 +200,7 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
           ['industry', '산업과 재정', '⚒'],
           ['policy', '정책 의회', '♜'],
           ['diplomacy', '외교와 군사', '⚔'],
+          ['dominion', `통치령 (${annexedCount})`, '🚩'],
         ] as const).map(([id, label, icon]) => (
           <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><span>{icon}</span>{label}</button>
         ))}
@@ -276,6 +285,17 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                   {signed(monthlyProjection.tradeEvaluation.totalNet.treasury)}
                 </dd>
               </div>
+              <div>
+                <dt>통치령 국고 순수익</dt>
+                <dd className={monthlyProjection.dominionNet.treasury < 0 ? 'negative' : ''}>
+                  {signed(monthlyProjection.dominionNet.treasury)}
+                  {monthlyProjection.dominionCosts.treasury > 0 && (
+                    <small style={{ color: '#8899a6', marginLeft: '4px' }}>
+                      (조세 +{monthlyProjection.dominionYields.treasury} / 사업비 −{monthlyProjection.dominionCosts.treasury})
+                    </small>
+                  )}
+                </dd>
+              </div>
               <div><dt>군대 유지비</dt><dd className="negative">−{monthlyProjection.militaryUpkeep}</dd></div>
               <div className="total"><dt>국고 순변동</dt><dd>{signed(monthlyProjection.treasury)}</dd></div>
               <div>
@@ -283,7 +303,7 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                 <dd>
                   {signed(monthlyProjection.grain)}
                   <small style={{ color: '#8899a6', marginLeft: '4px' }}>
-                    (교역 {signed(monthlyProjection.tradeEvaluation.totalNet.grain)})
+                    (교역 {signed(monthlyProjection.tradeEvaluation.totalNet.grain)} · 통치령 {signed(monthlyProjection.dominionNet.grain)})
                   </small>
                 </dd>
               </div>
@@ -291,6 +311,9 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                 <dt>철 / 목재 순변동</dt>
                 <dd>
                   ⛓{signed(monthlyProjection.iron)} · 🪵{signed(monthlyProjection.timber)}
+                  <small style={{ color: '#8899a6', marginLeft: '4px' }}>
+                    (통치령 ⛓{signed(monthlyProjection.dominionNet.iron)} · 🪵{signed(monthlyProjection.dominionNet.timber)})
+                  </small>
                 </dd>
               </div>
               <div>
@@ -304,11 +327,27 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                   )}
                 </dd>
               </div>
-              <div><dt>새로 병합한 영지</dt><dd>{annexedCount}곳</dd></div>
+              <div>
+                <dt>통치령 관리 현황</dt>
+                <dd>
+                  {annexedCount}곳 복속
+                  {annexedCount > 0 && (
+                    <small style={{ color: '#8899a6', marginLeft: '4px' }}>
+                      (핵심 {monthlyProjection.coreDominionCount}곳 · 소요 위험 {monthlyProjection.highRiskDominionCount}곳
+                      {monthlyProjection.stalledDominionCount > 0 && (
+                        <span className="negative" style={{ marginLeft: '4px' }}>
+                          · ⚠️ {monthlyProjection.stalledDominionCount}곳 예산 중단
+                        </span>
+                      )})
+                    </small>
+                  )}
+                </dd>
+              </div>
             </dl>
             <div className="realm-quick-actions">
               <button onClick={() => setTab('industry')}>산업 투자</button>
               <button onClick={() => setTab('diplomacy')}>외교 행동</button>
+              <button onClick={() => setTab('dominion')}>통치령 행정</button>
               <button onClick={onOpenLocal}>현장 활동</button>
             </div>
           </article>
@@ -623,6 +662,50 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                       })()}
                     </div>
 
+                    {neighbor.annexed && (() => {
+                      const gov = state.governance[neighbor.id]
+                      const evalItem = monthlyProjection.dominionEvaluation.evaluations.find(
+                        (e) => e.neighborId === neighbor.id,
+                      )
+                      const modeMeta =
+                        GOVERNANCE_MODES.find((m) => m.id === gov?.governanceMode) || GOVERNANCE_MODES[0]
+                      const isCore = gov?.isCore || (gov?.integration ?? 0) >= 100
+                      const riskTier = evalItem?.rebellionRiskTier || '안정'
+
+                      return (
+                        <div className="neighbor-dominion-summary">
+                          <div className="dominion-summary-header">
+                            <span className="dominion-mode-pill">
+                              {isCore ? '👑 완전 통합 직할령' : `${modeMeta.icon} ${modeMeta.name}`}
+                            </span>
+                            <span className={`dominion-risk-pill tier-${riskTier}`}>
+                              {riskTier === '반란 임박'
+                                ? '🔥 반란 임박'
+                                : riskTier === '경고'
+                                ? '⚠️ 소요 경고'
+                                : riskTier === '주의'
+                                ? '👀 소요 주의'
+                                : '🌿 치안 안정'}
+                            </span>
+                          </div>
+                          <div className="dominion-summary-meters">
+                            <span>충성 {gov?.loyalty ?? 50}%</span>
+                            <span>불안 {gov?.unrest ?? 0}%</span>
+                            <span>통합 {gov?.integration ?? 0}%</span>
+                          </div>
+                          <div className="dominion-summary-yield">
+                            <small>월 기여:</small>
+                            <span>
+                              🪙{signed(evalItem?.net.treasury ?? 0)} · 🌾+{evalItem?.yields.grain ?? 0} · ⛓+{evalItem?.yields.iron ?? 0} · 🪵+{evalItem?.yields.timber ?? 0}
+                            </span>
+                          </div>
+                          <button className="btn-goto-dominion" onClick={() => setTab('dominion')}>
+                            🚩 통치령 행정 관리
+                          </button>
+                        </div>
+                      )
+                    })()}
+
                     {!neighbor.annexed && (
                       <div className="neighbor-actions">
                         <button
@@ -665,6 +748,254 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
               })}
             </section>
           </div>
+        </div>
+      )}
+
+      {tab === 'dominion' && (
+        <div className="realm-content">
+          <div className="realm-section-intro">
+            <div>
+              <small>DOMINION ADMINISTRATION</small>
+              <h2>정복한 영지를 다스려 제국의 토대를 닦으십시오</h2>
+              <p>
+                병합된 영지는 고유한 특산품과 조세를 바치지만, 가혹한 수탈은 주민들의 분노와 무장 봉기를 촉발합니다.
+                군정 점령, 자치 인정, 문화 통합의 세 가지 방침을 적절히 교체해 반란을 억제하고 완전한 직할령으로 동화시키십시오.
+              </p>
+            </div>
+            <span>방침 전환 비용: 🏛 행정력 1 · 🪙 국고 20</span>
+          </div>
+
+          {annexedCount === 0 ? (
+            <div className="dominion-empty-card">
+              <div className="empty-icon">🚩</div>
+              <h3>현재 복속된 병합령이 없습니다</h3>
+              <p>
+                에르덴 변경백령의 군세는 아직 국경을 넘어 영토를 확장하지 않았습니다.
+                외교와 군사 탭에서 영유권 명분을 공표하고 전면 원정을 개시하여 첫 직속 통치령을 확보하십시오.
+              </p>
+              <button className="btn-empty-goto-diplomacy" onClick={() => setTab('diplomacy')}>
+                ⚔️ 외교와 군사 탭으로 이동
+              </button>
+            </div>
+          ) : (
+            <div className="dominion-grid">
+              {state.neighbors
+                .filter((n) => n.annexed && n.id !== 'crown')
+                .map((neighbor) => {
+                  const gov = state.governance[neighbor.id]
+                  if (!gov) return null
+                  const profile = TERRITORY_PROFILES[neighbor.id]
+                  const evalItem = monthlyProjection.dominionEvaluation.evaluations.find(
+                    (e) => e.neighborId === neighbor.id,
+                  )
+                  const isCore = gov.isCore || gov.integration >= 100
+                  const currentModeMeta =
+                    GOVERNANCE_MODES.find((m) => m.id === gov.governanceMode) || GOVERNANCE_MODES[0]
+                  const riskTier = evalItem?.rebellionRiskTier || '안정'
+
+                  return (
+                    <article className={`dominion-card ${isCore ? 'core-territory' : ''}`} key={neighbor.id}>
+                      <header className="dominion-card-header">
+                        <div className="dominion-identity">
+                          <span className="dominion-crest">{neighbor.icon}</span>
+                          <div>
+                            <div className="dominion-kicker-row">
+                              <small>{neighbor.title}</small>
+                              <span className="dominion-trait-badge">✦ {profile?.traitName || '지역 고유 특성'}</span>
+                            </div>
+                            <h3>{neighbor.name}</h3>
+                          </div>
+                        </div>
+                        <div className="dominion-status-badges">
+                          {isCore && <span className="dominion-badge-core">👑 완전 통합 (Core)</span>}
+                          <span className={`dominion-risk-badge tier-${riskTier}`}>
+                            {riskTier === '반란 임박'
+                              ? '🔥 반란 임박!'
+                              : riskTier === '경고'
+                              ? '⚠️ 소요 경고'
+                              : riskTier === '주의'
+                              ? '👀 소요 주의'
+                              : '🌿 치안 안정'}
+                          </span>
+                        </div>
+                      </header>
+
+                      {profile && (
+                        <div className="dominion-lore-box">
+                          <p>{profile.traitDescription}</p>
+                          <small>고유 특산품: {profile.specialtySummary}</small>
+                        </div>
+                      )}
+
+                      {evalItem?.isStalled && (
+                        <div className="dominion-stalled-banner">
+                          <span>⚠️ {evalItem.stalledReason}</span>
+                          <small>이번 달 통합 사업이 중단되었으며, 방치로 인해 주민 불안도가 +4 급등합니다.</small>
+                        </div>
+                      )}
+
+                      <div className="dominion-gauges">
+                        <div className="gauge-item">
+                          <div className="gauge-label-row">
+                            <span>❤️ 충성도</span>
+                            <strong>
+                              {gov.loyalty} / 100
+                              <small className={evalItem && evalItem.deltaLoyalty < 0 ? 'text-danger' : 'text-good'}>
+                                ({signed(evalItem?.deltaLoyalty ?? 0)}/월)
+                              </small>
+                            </strong>
+                          </div>
+                          <div className="realm-meter">
+                            <i
+                              style={{
+                                width: `${gov.loyalty}%`,
+                                backgroundColor: gov.loyalty <= 10 ? '#ef4444' : gov.loyalty <= 25 ? '#f59e0b' : '#10b981',
+                              }}
+                            />
+                          </div>
+                          {gov.loyalty <= 10 ? (
+                            <small className="gauge-alert text-danger">🔥 극도의 적대감 (다음 달 반란 위험)</small>
+                          ) : gov.loyalty <= 25 ? (
+                            <small className="gauge-alert text-amber">⚠️ 반발과 태업 심화</small>
+                          ) : (
+                            <small className="gauge-alert text-muted">주민 통제 유지 중</small>
+                          )}
+                        </div>
+
+                        <div className="gauge-item">
+                          <div className="gauge-label-row">
+                            <span>🔥 불안도</span>
+                            <strong>
+                              {gov.unrest} / 100
+                              <small className={evalItem && evalItem.deltaUnrest > 0 ? 'text-danger' : 'text-good'}>
+                                ({signed(evalItem?.deltaUnrest ?? 0)}/월)
+                              </small>
+                            </strong>
+                          </div>
+                          <div className="realm-meter">
+                            <i
+                              style={{
+                                width: `${gov.unrest}%`,
+                                backgroundColor: gov.unrest >= 90 ? '#ef4444' : gov.unrest >= 70 ? '#f97316' : '#3b82f6',
+                              }}
+                            />
+                          </div>
+                          {gov.unrest >= 90 ? (
+                            <small className="gauge-alert text-danger">🔥 무장 봉기 집결 완료 (반란 임박)</small>
+                          ) : gov.unrest >= 70 ? (
+                            <small className="gauge-alert text-amber">⚠️ 민중 폭동 및 파괴 공작 발생</small>
+                          ) : (
+                            <small className="gauge-alert text-muted">치안 안정권</small>
+                          )}
+                        </div>
+
+                        <div className="gauge-item">
+                          <div className="gauge-label-row">
+                            <span>🏛️ 통합도</span>
+                            <strong>
+                              {gov.integration} / 100
+                              <small className="text-cyan">
+                                ({isCore ? '완전 편입' : `${signed(evalItem?.deltaIntegration ?? 0)}/월`})
+                              </small>
+                            </strong>
+                          </div>
+                          <div className="realm-meter purple">
+                            <i style={{ width: `${gov.integration}%` }} />
+                          </div>
+                          {isCore ? (
+                            <small className="gauge-alert text-good">✓ 영구 핵심 직할령 편입 완료</small>
+                          ) : (
+                            <small className="gauge-alert text-muted">100 도달 시 영구 핵심 직할령으로 승격</small>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="dominion-contribution-box">
+                        <div className="contrib-header">
+                          <span className="contrib-title">다음 달 예상 공납 및 비용</span>
+                          <span className="contrib-current-mode">현재: {currentModeMeta.name}</span>
+                        </div>
+                        <div className="contrib-grid">
+                          <div>
+                            <small>조세 수익</small>
+                            <strong>+{evalItem?.yields.treasury ?? 0}🪙</strong>
+                          </div>
+                          <div>
+                            <small>특산 물자</small>
+                            <strong>
+                              🌾+{evalItem?.yields.grain ?? 0} · ⛓+{evalItem?.yields.iron ?? 0} · 🪵+{evalItem?.yields.timber ?? 0}
+                            </strong>
+                          </div>
+                          <div>
+                            <small>통합 사업비</small>
+                            <strong className={evalItem?.costs.treasury ? 'text-amber' : ''}>
+                              {evalItem?.costs.treasury ? `−${evalItem.costs.treasury}🪙` : '없음'}
+                            </strong>
+                          </div>
+                          <div className="contrib-total">
+                            <small>국고 순변동</small>
+                            <strong className={(evalItem?.net.treasury ?? 0) < 0 ? 'text-danger' : 'text-good'}>
+                              {signed(evalItem?.net.treasury ?? 0)}🪙
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="dominion-modes-section">
+                        <div className="modes-header">
+                          <span className="modes-title">통치 방침 전환</span>
+                          <span className="modes-cost-hint">전환 비용: 🏛1 · 🪙20</span>
+                        </div>
+                        <div className="dominion-mode-cards">
+                          {GOVERNANCE_MODES.map((modeMeta) => {
+                            const isCurrent = gov.governanceMode === modeMeta.id
+                            const canChange =
+                              state.capacities.administration >= 1 &&
+                              state.resources.treasury >= 20 &&
+                              !isCurrent
+
+                            return (
+                              <div
+                                key={modeMeta.id}
+                                className={`dominion-mode-card ${isCurrent ? 'active-mode' : ''}`}
+                              >
+                                <div className="mode-card-header">
+                                  <span>{modeMeta.icon} {modeMeta.name}</span>
+                                  {isCurrent && <span className="mode-current-tag">✓ 시행 중</span>}
+                                </div>
+                                <p className="mode-short-desc">{modeMeta.shortDesc}</p>
+                                <div className="mode-char-badge">{modeMeta.character}</div>
+                                {!isCurrent && (
+                                  <button
+                                    disabled={!canChange}
+                                    className="btn-select-mode"
+                                    onClick={() => changeGovernanceMode(neighbor.id, modeMeta.id)}
+                                    title={
+                                      state.capacities.administration < 1 || state.resources.treasury < 20
+                                        ? '행정력 1 및 국고 20 필요'
+                                        : '방침 전환'
+                                    }
+                                  >
+                                    방침 선포 <small>(🏛1 · 🪙20)</small>
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {gov.lastReport && (
+                        <div className="dominion-last-report">
+                          <span className="report-label">최근 총독 보고:</span>
+                          <span className="report-text">{gov.lastReport}</span>
+                        </div>
+                      )}
+                    </article>
+                  )
+                })}
+            </div>
+          )}
         </div>
       )}
 

@@ -1,11 +1,16 @@
 import type {
+  AnnexedTerritoryGovernance,
   CampaignOrderId,
   Doctrine,
+  DominionGovernanceSummary,
+  GovernanceMode,
+  GovernedTerritoryEvaluation,
   IndustryId,
   NeighborRealm,
   PolicyId,
   RealmResources,
   RealmState,
+  RebellionRiskTier,
   TradeContractId,
   TradeRouteEvaluation,
 } from '../types/realm'
@@ -497,6 +502,356 @@ export function evaluateTradeRoutes(
   }
 }
 
+export interface TerritoryProfile {
+  id: string
+  name: string
+  title: string
+  icon: string
+  traitName: string
+  traitDescription: string
+  specialtySummary: string
+  militaryOccupation: {
+    costs: RealmResources
+    yields: RealmResources
+    deltaLoyalty: number
+    deltaUnrest: number
+    deltaIntegration: number
+    characterDescription: string
+  }
+  localAutonomy: {
+    costs: RealmResources
+    yields: RealmResources
+    deltaLoyalty: number
+    deltaUnrest: number
+    deltaIntegration: number
+    characterDescription: string
+  }
+  culturalIntegration: {
+    monthlyCost: number
+    yields: RealmResources
+    deltaLoyalty: number
+    deltaUnrest: number
+    deltaIntegration: number
+    characterDescription: string
+  }
+  coreYields: RealmResources
+}
+
+export const TERRITORY_PROFILES: Record<string, TerritoryProfile> = {
+  sylvana: {
+    id: 'sylvana',
+    name: '실바나 숲의회',
+    title: '고대 수림의 연맹',
+    icon: '🌲',
+    traitName: '수림의 연대와 저항',
+    traitDescription: '수림의 엘프와 부족민은 무력 억압에 거세게 저항하지만, 자치나 문화가 존중되면 풍부한 정령목과 약초를 기꺼이 바칩니다.',
+    specialtySummary: '식량(약초) · 고대 목재(정령목)',
+    militaryOccupation: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 14, grain: 14, iron: 0, timber: 16 },
+      deltaLoyalty: -5,
+      deltaUnrest: 7,
+      deltaIntegration: 1,
+      characterDescription: '수림 자원을 강제 벌채·수탈합니다. 목재와 식량 확보는 최대이나 저항 심화로 불안이 급등합니다.',
+    },
+    localAutonomy: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 4, grain: 8, iron: 0, timber: 8 },
+      deltaLoyalty: 4,
+      deltaUnrest: -5,
+      deltaIntegration: 0,
+      characterDescription: '숲의회의 자치 관습을 보장합니다. 수탈량은 대폭 감소하나 충성도가 회복되고 불안이 진정됩니다.',
+    },
+    culturalIntegration: {
+      monthlyCost: 20,
+      yields: { treasury: 8, grain: 12, iron: 0, timber: 12 },
+      deltaLoyalty: 2,
+      deltaUnrest: -3,
+      deltaIntegration: 7,
+      characterDescription: '에르덴의 삼림 법률과 관료를 파견해 수림을 영구 영지로 동화합니다. 매달 통합도가 꾸준히 상승합니다.',
+    },
+    coreYields: { treasury: 16, grain: 18, iron: 2, timber: 20 },
+  },
+  ironridge: {
+    id: 'ironridge',
+    name: '철령 남작령',
+    title: '북부 관문의 경쟁자',
+    icon: '⛰️',
+    traitName: '철령 남작들의 긍지',
+    traitDescription: '북부 산악의 완강한 기사 가문들은 무력 굴복에 자존심을 걸고 저항하나, 통제 하에 대규모 철광석과 중장갑 장비를 제공합니다.',
+    specialtySummary: '북부 철광 · 중장갑 무구',
+    militaryOccupation: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 14, grain: 2, iron: 14, timber: 4 },
+      deltaLoyalty: -5,
+      deltaUnrest: 6,
+      deltaIntegration: 1,
+      characterDescription: '산악 요새와 광산을 강제 징발합니다. 막대한 철을 수탈하지만 토착 남작들의 반발로 충성도가 하락합니다.',
+    },
+    localAutonomy: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 5, grain: 0, iron: 6, timber: 2 },
+      deltaLoyalty: 4,
+      deltaUnrest: -5,
+      deltaIntegration: 0,
+      characterDescription: '기존 남작 가문의 영지 재판권과 봉건적 자치를 인정해 봉기를 방지하고 소량의 철을 공납받습니다.',
+    },
+    culturalIntegration: {
+      monthlyCost: 20,
+      yields: { treasury: 8, grain: 2, iron: 10, timber: 4 },
+      deltaLoyalty: 2,
+      deltaUnrest: -3,
+      deltaIntegration: 7,
+      characterDescription: '봉건 장원 제도를 개혁하고 본령 행정망에 철령의 광산을 편입합니다. 안정적으로 완전 직할령 편입을 향해 나아갑니다.',
+    },
+    coreYields: { treasury: 16, grain: 4, iron: 16, timber: 6 },
+  },
+  auric: {
+    id: 'auric',
+    name: '아우릭 자유시',
+    title: '상단이 다스리는 도시',
+    icon: '⚓',
+    traitName: '상무회의 자유 무역',
+    traitDescription: '군정의 무자비한 검문과 통제는 상업 자본을 위축시키지만, 자치 특권이나 제도적 통합이 주어지면 최고의 국고 세입을 보장합니다.',
+    specialtySummary: '해상무역 · 금융 조세',
+    militaryOccupation: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 16, grain: 0, iron: 2, timber: 4 },
+      deltaLoyalty: -6,
+      deltaUnrest: 7,
+      deltaIntegration: 1,
+      characterDescription: '자유시 항만과 금고를 강제 압류합니다. 즉각적인 은화를 확보하나 상인들의 태업과 밀수로 잠재 세수가 훼손됩니다.',
+    },
+    localAutonomy: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 14, grain: 0, iron: 2, timber: 2 },
+      deltaLoyalty: 5,
+      deltaUnrest: -6,
+      deltaIntegration: 0,
+      characterDescription: '칠인 상무회의 자치 특허를 갱신합니다. 무역망이 정상화되어 군정보다 오히려 안정적인 세금을 지속적으로 바칩니다.',
+    },
+    culturalIntegration: {
+      monthlyCost: 20,
+      yields: { treasury: 20, grain: 0, iron: 4, timber: 4 },
+      deltaLoyalty: 2,
+      deltaUnrest: -3,
+      deltaIntegration: 7,
+      characterDescription: '에르덴 관세를 적용하고 본령 은행과 연계해 대규모 금융·상업 거점으로 체계적으로 통합합니다.',
+    },
+    coreYields: { treasury: 32, grain: 2, iron: 6, timber: 6 },
+  },
+  goblin: {
+    id: 'goblin',
+    name: '붉은이빨 부족령',
+    title: '동부 황야의 군벌',
+    icon: '🔥',
+    traitName: '황야의 야생성과 약탈 본능',
+    traitDescription: '거칠고 호전적인 부족민은 동화하기 가장 어렵고 소요 위험이 극심하지만, 길들이면 방대한 사냥 가축, 식량, 노획 철재를 제공합니다.',
+    specialtySummary: '가축 식량 · 노획 고철',
+    militaryOccupation: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 10, grain: 18, iron: 6, timber: 4 },
+      deltaLoyalty: -5,
+      deltaUnrest: 8,
+      deltaIntegration: 1,
+      characterDescription: '황야의 부락들을 철권으로 짓누릅니다. 즉각적인 식량과 무기를 징발하나 불안도가 매우 빠르게 폭증합니다.',
+    },
+    localAutonomy: {
+      costs: { treasury: 0, grain: 0, iron: 0, timber: 0 },
+      yields: { treasury: 3, grain: 10, iron: 3, timber: 2 },
+      deltaLoyalty: 4,
+      deltaUnrest: -5,
+      deltaIntegration: 0,
+      characterDescription: '부족 족장들의 영도를 인정하고 명목상 복종과 가축 공납만을 요구하여 황야의 반란 불씨를 누그러뜨립니다.',
+    },
+    culturalIntegration: {
+      monthlyCost: 20,
+      yields: { treasury: 6, grain: 14, iron: 4, timber: 3 },
+      deltaLoyalty: 2,
+      deltaUnrest: -3,
+      deltaIntegration: 7,
+      characterDescription: '정착 농경과 요새선을 구축하여 유목 부족민을 제도권 영민으로 순치시킵니다. 높은 비용이 들지만 확고한 영토가 됩니다.',
+    },
+    coreYields: { treasury: 12, grain: 24, iron: 8, timber: 6 },
+  },
+}
+
+export const GOVERNANCE_MODES: {
+  id: GovernanceMode
+  name: string
+  icon: string
+  shortDesc: string
+  character: string
+}[] = [
+  {
+    id: 'military_occupation',
+    name: '군정 점령',
+    icon: '⚔️',
+    shortDesc: '주둔군을 배치해 물자와 세금을 강제 수탈합니다.',
+    character: '최대 자원 수탈 · 매달 불안도 상승 및 충성도 급락 · 통합 진척 미미 (+1)',
+  },
+  {
+    id: 'local_autonomy',
+    name: '자치 인정',
+    icon: '📜',
+    shortDesc: '현지 귀족과 원로의 자치권을 인정하고 명목상 조공만 받습니다.',
+    character: '조세 대폭 감소 · 매달 충성도 회복 및 불안도 감소 · 통합 진척 정체 (0)',
+  },
+  {
+    id: 'cultural_integration',
+    name: '문화 통합',
+    icon: '🏛️',
+    shortDesc: '국고를 투입해 법전, 언어, 관료제를 이식해 에르덴의 영구 영지로 동화시킵니다.',
+    character: '매달 국고 🪙20 소모 · 충성/불안 완만히 개선 · 매달 통합도 대폭 상승 (+7)',
+  },
+]
+
+export function calculateRebellionRiskTier(loyalty: number, unrest: number): RebellionRiskTier {
+  if (unrest >= 90 || loyalty <= 10) return '반란 임박'
+  if (unrest >= 70 || loyalty <= 25) return '경고'
+  if (unrest >= 50 || loyalty <= 40) return '주의'
+  return '안정'
+}
+
+export function evaluateGovernedTerritories(
+  neighbors: NeighborRealm[],
+  governance: Record<string, AnnexedTerritoryGovernance>,
+  resources: RealmResources,
+  _policies?: PolicyId[],
+): DominionGovernanceSummary {
+  let workingTreasury = resources.treasury
+  const evaluations: GovernedTerritoryEvaluation[] = []
+  const totalCosts: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  const totalYields: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  const totalNet: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  let coreCount = 0
+  let highRiskCount = 0
+  let stalledCount = 0
+
+  for (const neighbor of neighbors) {
+    if (!neighbor.annexed || neighbor.id === 'crown') continue
+    const gov = governance[neighbor.id]
+    if (!gov) continue
+
+    const profile = TERRITORY_PROFILES[neighbor.id]
+    if (!profile) continue
+
+    const isCore = gov.isCore || gov.integration >= 100
+    if (isCore) coreCount += 1
+
+    let costs: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+    let yields: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+    let deltaLoyalty = 0
+    let deltaUnrest = 0
+    let deltaIntegration = 0
+    let isFunded = true
+    let isStalled = false
+    let stalledReason: string | undefined
+
+    if (isCore) {
+      costs = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+      yields = { ...profile.coreYields }
+      deltaLoyalty = gov.loyalty < 90 ? 1 : 0
+      deltaUnrest = gov.unrest > 10 ? -2 : 0
+      deltaIntegration = 0
+    } else if (gov.governanceMode === 'cultural_integration') {
+      const programCost = profile.culturalIntegration.monthlyCost
+      if (workingTreasury >= programCost) {
+        workingTreasury -= programCost
+        costs = { treasury: programCost, grain: 0, iron: 0, timber: 0 }
+        yields = { ...profile.culturalIntegration.yields }
+        deltaLoyalty = profile.culturalIntegration.deltaLoyalty
+        deltaUnrest = profile.culturalIntegration.deltaUnrest
+        deltaIntegration = profile.culturalIntegration.deltaIntegration
+      } else {
+        isFunded = false
+        isStalled = true
+        stalledCount += 1
+        stalledReason = `국고 부족으로 통합 사업 중단 (필요 🪙${programCost} / 가용 🪙${workingTreasury})`
+        costs = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        yields = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        deltaLoyalty = -2
+        deltaUnrest = 4
+        deltaIntegration = 0
+      }
+    } else if (gov.governanceMode === 'military_occupation') {
+      costs = { ...profile.militaryOccupation.costs }
+      yields = { ...profile.militaryOccupation.yields }
+      deltaLoyalty = profile.militaryOccupation.deltaLoyalty
+      deltaUnrest = profile.militaryOccupation.deltaUnrest
+      deltaIntegration = profile.militaryOccupation.deltaIntegration
+    } else {
+      // local_autonomy
+      costs = { ...profile.localAutonomy.costs }
+      yields = { ...profile.localAutonomy.yields }
+      deltaLoyalty = profile.localAutonomy.deltaLoyalty
+      deltaUnrest = profile.localAutonomy.deltaUnrest
+      deltaIntegration = profile.localAutonomy.deltaIntegration
+    }
+
+    const net: RealmResources = {
+      treasury: yields.treasury - costs.treasury,
+      grain: yields.grain - costs.grain,
+      iron: yields.iron - costs.iron,
+      timber: yields.timber - costs.timber,
+    }
+
+    totalCosts.treasury += costs.treasury
+    totalCosts.grain += costs.grain
+    totalCosts.iron += costs.iron
+    totalCosts.timber += costs.timber
+
+    totalYields.treasury += yields.treasury
+    totalYields.grain += yields.grain
+    totalYields.iron += yields.iron
+    totalYields.timber += yields.timber
+
+    totalNet.treasury += net.treasury
+    totalNet.grain += net.grain
+    totalNet.iron += net.iron
+    totalNet.timber += net.timber
+
+    const projectedLoyalty = Math.max(0, Math.min(100, gov.loyalty + deltaLoyalty))
+    const projectedUnrest = Math.max(0, Math.min(100, gov.unrest + deltaUnrest))
+    const riskTier = calculateRebellionRiskTier(projectedLoyalty, projectedUnrest)
+
+    if (riskTier === '경고' || riskTier === '반란 임박') {
+      highRiskCount += 1
+    }
+
+    evaluations.push({
+      neighborId: neighbor.id,
+      neighborName: neighbor.name,
+      specialty: neighbor.specialty,
+      mode: gov.governanceMode,
+      loyalty: gov.loyalty,
+      unrest: gov.unrest,
+      integration: gov.integration,
+      isCore,
+      isFunded,
+      isStalled,
+      stalledReason,
+      costs,
+      yields,
+      net,
+      deltaLoyalty,
+      deltaUnrest,
+      deltaIntegration,
+      rebellionRiskTier: riskTier,
+    })
+  }
+
+  return {
+    evaluations,
+    totalCosts,
+    totalYields,
+    totalNet,
+    coreCount,
+    highRiskCount,
+    stalledCount,
+  }
+}
+
 export const DOCTRINE_LABELS: Record<Doctrine, string> = {
   unset: '노선 미결정',
   stewardship: '질서의 길',
@@ -539,6 +894,7 @@ export const INITIAL_REALM_STATE: RealmState = {
     { id: 'auric', name: '아우릭 자유시', title: '상단이 다스리는 도시', ruler: '칠인 상무회', icon: '⚓', relation: 4, strength: 32, attitude: '중립', specialty: '해상무역 · 금융', tradeActive: false, tradeContract: null, claim: false, annexed: false },
     { id: 'goblin', name: '붉은이빨 부족령', title: '동부 황야의 군벌', ruler: '대족장 우르가쉬', icon: '🔥', relation: -38, strength: 35, attitude: '적대', specialty: '약탈품 · 전투짐승', tradeActive: false, tradeContract: null, claim: false, annexed: false },
   ],
+  governance: {},
   logs: [
     {
       id: 'realm-start',

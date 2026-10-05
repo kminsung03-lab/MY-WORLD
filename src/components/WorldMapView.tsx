@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DOCTRINE_LABELS,
+  GOVERNANCE_MODES,
+  TERRITORY_PROFILES,
   TRADE_CONTRACTS,
   type TradeContractDefinition,
   calculateArmyPower,
-  evaluateTradeRoutes,
 } from '../constants/realmData'
 import type { GameState } from '../types/game'
 import type { Nation, Province } from '../types/worldMap'
@@ -105,12 +106,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
       isSuspended: boolean
       suspendReason?: string
     }[] = []
-    const tradeEval = evaluateTradeRoutes(
-      realmState.neighbors,
-      realmState.resources,
-      realmState.policies,
-      realmState.activeCampaign?.targetId,
-    )
+    const tradeEval = monthlyProjection.tradeEvaluation
     for (const item of strategicProvinces.values()) {
       if (item.neighbor.tradeActive && !item.neighbor.annexed) {
         const routeEval = tradeEval.routes.find((r) => r.neighborId === item.neighbor.id)
@@ -128,10 +124,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
     return routes
   }, [
     strategicProvinces,
-    realmState.neighbors,
-    realmState.resources,
-    realmState.policies,
-    realmState.activeCampaign,
+    monthlyProjection.tradeEvaluation,
   ])
 
   const selectedAnnexedInfo = strategicProvinces.get(selectedProvince.id)
@@ -808,48 +801,98 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                 </div>
               </div>
             </div>
-          ) : isSelectedAnnexed && selectedAnnexedInfo ? (
-            <div className="nation-detail-card annexed-political-card">
-              <div className="inspector-header">
-                <span className="atlas-kicker">통치령 정치 현황</span>
-                <span className="neighbor-status-pill annexed">🚩 직속 병합령</span>
-              </div>
-              <h3 className="nation-title text-gold">
-                🚩 에르덴 직속 통치령
-              </h3>
+          ) : isSelectedAnnexed && selectedAnnexedInfo ? (() => {
+            const neighborId = selectedAnnexedInfo.neighbor.id
+            const gov = realmState.governance[neighborId]
+            const profile = TERRITORY_PROFILES[neighborId]
+            const evalItem = monthlyProjection.dominionEvaluation.evaluations.find(
+              (e) => e.neighborId === neighborId,
+            )
+            const modeMeta =
+              GOVERNANCE_MODES.find((m) => m.id === gov?.governanceMode) || GOVERNANCE_MODES[0]
+            const isCore = gov?.isCore || (gov?.integration ?? 0) >= 100
+            const riskTier = evalItem?.rebellionRiskTier || '안정'
 
-              <p className="nation-description">
-                군사 원정 및 외교적 결단으로 에르덴 변경백령에 복속된 직할 영지입니다.
-                현지 행정과 방어선이 변경백 직속 수비대와 관료에 의해 통제되며, 생산되는 조세와 인력이 에르덴 본령으로 귀속됩니다.
-              </p>
-              <div className="nation-meta-list">
-                <div className="meta-item">
-                  <span className="meta-k">현재 통치자</span>
-                  <span className="meta-v">에르덴 변경백령 (직속 통치)</span>
-                </div>
-                <div className="meta-item">
-                  <span className="meta-k">이전 지배세력</span>
-                  <span className="meta-v">
-                    {selectedAnnexedInfo.neighbor.icon} {selectedAnnexedInfo.neighbor.name} <small>({selectedAnnexedInfo.neighbor.title})</small>
+            return (
+              <div className="nation-detail-card annexed-political-card">
+                <div className="inspector-header">
+                  <span className="atlas-kicker">통치령 정치 현황</span>
+                  <span className={`neighbor-status-pill ${isCore ? 'core' : 'annexed'}`}>
+                    {isCore ? '👑 완전 통합 직할령' : '🚩 직속 병합령'}
                   </span>
                 </div>
-                <div className="meta-item">
-                  <span className="meta-k">현재 정치 상태</span>
-                  <span className="meta-v text-good">직속 병합령 (점령 및 완전 귀속)</span>
-                </div>
-                <div className="meta-item">
-                  <span className="meta-k">조세·인력 귀속</span>
-                  <span className="meta-v text-amber">에르덴 본령 귀속</span>
-                </div>
-                <div className="meta-item">
-                  <span className="meta-k">지도상 권역</span>
-                  <span className="meta-v text-muted">
-                    {selectedNation.emblem} {selectedNation.name} ({selectedNation.typeLabel})
-                  </span>
+                <h3 className="nation-title text-gold">
+                  🚩 {selectedAnnexedInfo.neighbor.name} 통치령
+                </h3>
+
+                <p className="nation-description">
+                  {profile?.traitDescription ||
+                    '군사 원정으로 에르덴 변경백령에 복속된 직할 영지입니다. 현지 행정과 방어선이 변경백 직속 수비대에 의해 통제됩니다.'}
+                </p>
+
+                <div className="nation-meta-list">
+                  <div className="meta-item">
+                    <span className="meta-k">통치 방침</span>
+                    <span className="meta-v text-amber">
+                      {isCore ? '👑 완전 통합 직할령 (안정 영구 편입)' : `${modeMeta.icon} ${modeMeta.name}`}
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-k">지역 고유 성향</span>
+                    <span className="meta-v text-cyan">
+                      {profile?.traitName || '고유 특성'}
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-k">충성도 / 불안도</span>
+                    <span className="meta-v">
+                      ❤️ {gov?.loyalty ?? 50}% ({evalItem && evalItem.deltaLoyalty >= 0 ? `+${evalItem.deltaLoyalty}` : evalItem?.deltaLoyalty}/월) · 🔥 {gov?.unrest ?? 0}% ({evalItem && evalItem.deltaUnrest >= 0 ? `+${evalItem.deltaUnrest}` : evalItem?.deltaUnrest}/월)
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-k">통합 진척도</span>
+                    <span className="meta-v text-good">
+                      {isCore ? '✓ 100% (완전 통합 코어)' : `${gov?.integration ?? 0}% (+${evalItem?.deltaIntegration ?? 0}/월)`}
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-k">소요·반란 위험</span>
+                    <span className={`meta-v ${riskTier === '반란 임박' ? 'text-danger font-bold' : riskTier === '경고' ? 'text-danger' : riskTier === '주의' ? 'text-amber' : 'text-good'}`}>
+                      {riskTier === '반란 임박'
+                        ? '🔥 반란 임박 (다음 달 봉기 위험!)'
+                        : riskTier === '경고'
+                        ? '⚠️ 소요 경고 (불안 고조)'
+                        : riskTier === '주의'
+                        ? '👀 소요 주의'
+                        : '🌿 치안 안정'}
+                    </span>
+                  </div>
+                  {evalItem?.isStalled && (
+                    <div className="meta-item text-danger">
+                      <span className="meta-k">예산 경고</span>
+                      <span className="meta-v">{evalItem.stalledReason}</span>
+                    </div>
+                  )}
+                  <div className="meta-item">
+                    <span className="meta-k">다음 달 공납</span>
+                    <span className="meta-v text-amber">
+                      🪙{evalItem && evalItem.net.treasury >= 0 ? `+${evalItem.net.treasury}` : evalItem?.net.treasury} · 🌾+{evalItem?.yields.grain ?? 0} · ⛓+{evalItem?.yields.iron ?? 0} · 🪵+{evalItem?.yields.timber ?? 0}
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-k">최근 총독 보고</span>
+                    <span className="meta-v text-muted">{gov?.lastReport || '현지 수비대 주둔 중'}</span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-k">지도상 권역</span>
+                    <span className="meta-v text-muted">
+                      {selectedNation.emblem} {selectedNation.name} ({selectedNation.typeLabel})
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
+            )
+          })() : (
             <div className="nation-detail-card">
               <div className="inspector-header">
                 <span className="atlas-kicker">소속 세력</span>
