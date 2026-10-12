@@ -4411,3 +4411,1116 @@ body {
   border-color: rgba(192, 132, 252, 0.5);
   background: rgba(192, 132, 252, 0.12);
 }
+
+/* ==========================================================================
+   9차 시스템: STRATEGIC RIVALS, DIRECTIVES, AMBITIONS & COUNTERPLAY STYLES
+   ========================================================================== */
+
+/* Tab badges */
+.tab-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.realm-tab-btn.tab-alert .tab-badge {
+  background: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  border-color: #ef4444;
+  animation: pulse-danger 1.5s infinite;
+}
+
+@keyframes pulse-danger {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); box-shadow: 0 0 10px rgba(239, 68, 68, 0.6); }
+}
+
+/* Threat Alert Banners */
+.realm-threat-alerts {
+  grid-column: 1 / 3;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.threat-alert-banner {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(24, 30, 36, 0.95), rgba(15, 23, 28, 0.95));
+  border: 1px solid #384852;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.threat-alert-banner.threat-위기 {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(40, 16, 20, 0.95), rgba(20, 10, 14, 0.95));
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
+}
+
+.threat-alert-banner.threat-경고 {
+  border-color: #f97316;
+  background: linear-gradient(135deg, rgba(38, 22, 14, 0.95), rgba(18, 14, 12, 0.95));
+}
+
+.threat-alert-banner.threat-기회 {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, rgba(14, 30, 44, 0.95), rgba(10, 20, 30, 0.95));
+}
+
+.threat-alert-banner.is-countered {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(12, 34, 26, 0.95), rgba(8, 22, 18, 0.95));
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.threat-alert-icon {
+  font-size: 28px;
+  display: grid;
+  place-items: center;
+}
+
+.threat-alert-content h4 {
+  margin: 3px 0 4px;
+  color: #f3f4f6;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.threat-alert-content p {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.threat-alert-tags {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+}
+
+.threat-tag-level {
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-weight: 800;
+  background: #374151;
+  color: #e5e7eb;
+}
+
+.threat-위기 .threat-tag-level { background: #991b1b; color: #fecaca; }
+.threat-경고 .threat-tag-level { background: #9a3412; color: #fed7aa; }
+.threat-주의 .threat-tag-level { background: #854d0e; color: #fef08a; }
+.threat-기회 .threat-tag-level { background: #075985; color: #bae6fd; }
+
+.threat-tag-sender {
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.threat-tag-countdown {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.btn-threat-respond {
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #b45309, #78350f);
+  color: #fef3c7;
+  border: 1px solid #d97706;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-threat-respond:hover {
+  background: linear-gradient(135deg, #d97706, #92400e);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.counter-settled-badge {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Strategic Directives Panel */
+.realm-directives-panel {
+  grid-column: 1 / 3;
+}
+
+.directives-step-badge {
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.directives-intro {
+  margin: 0 0 14px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.directives-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.directive-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: #111a20;
+  border: 1px solid #23343d;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.directive-card.is-ready {
+  border-color: #10b981;
+  background: linear-gradient(145deg, #122822, #0d1e19);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.2);
+}
+
+.directive-card.is-claimed {
+  opacity: 0.65;
+  border-color: #2a3c44;
+}
+
+.directive-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.directive-step {
+  color: #38bdf8;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.directive-card-header h4 {
+  margin: 0;
+  flex: 1;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dir-status-tag {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 800;
+}
+
+.dir-status-tag.claimed { background: #1f2937; color: #9ca3af; }
+.dir-status-tag.ready { background: #065f46; color: #a7f3d0; }
+.dir-status-tag.pending { background: #1e293b; color: #94a3b8; }
+
+.directive-desc {
+  margin: 0;
+  color: #83949d;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.directive-meta {
+  display: grid;
+  gap: 3px;
+  font-size: 10px;
+  border-top: 1px dashed #23363f;
+  padding-top: 6px;
+}
+
+.directive-target { color: #cbd5e1; }
+.directive-reward { color: #fbbf24; font-weight: 700; }
+
+.btn-claim-directive {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+.btn-claim-directive.active {
+  background: linear-gradient(135deg, #059669, #047857);
+  border-color: #10b981;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.btn-claim-directive.active:hover {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+/* Rivals Tab View */
+.realm-rivals-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rivals-hero-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 24px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #152229, #0e171c);
+  border: 1px solid #283a42;
+}
+
+.rivals-kicker {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #f59e0b;
+  font-weight: 800;
+}
+
+.rivals-hero-banner h2 {
+  margin: 4px 0 6px;
+  color: #f8fafc;
+  font-size: 20px;
+}
+
+.rivals-hero-banner p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  max-width: 680px;
+  line-height: 1.5;
+}
+
+.rivals-summary-box {
+  display: flex;
+  gap: 16px;
+  padding: 12px 18px;
+  background: rgba(10, 16, 20, 0.8);
+  border: 1px solid #2c3f49;
+  border-radius: var(--radius-sm);
+}
+
+.rivals-summary-box > div {
+  text-align: center;
+}
+
+.rivals-summary-box span {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.rivals-summary-box strong {
+  font-size: 18px;
+  color: #f1f5f9;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #23343d;
+  padding-bottom: 6px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 15px;
+}
+
+.section-title-row small {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.rivals-empty-notice {
+  text-align: center;
+  padding: 36px 20px;
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 30, 0.6);
+  border: 1px dashed #283942;
+}
+
+.rivals-empty-notice .empty-icon {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.rivals-empty-notice h4 {
+  margin: 0 0 6px;
+  color: #e2e8f0;
+  font-size: 15px;
+}
+
+.rivals-empty-notice p {
+  margin: 0 auto;
+  max-width: 500px;
+  color: #819199;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.rival-intent-cards-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.rival-intent-card {
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: #111a20;
+  border: 1px solid #293c45;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rival-intent-card.threat-위기 { border-color: #ef4444; box-shadow: 0 0 16px rgba(239, 68, 68, 0.15); }
+.rival-intent-card.threat-경고 { border-color: #f97316; }
+.rival-intent-card.threat-주의 { border-color: #eab308; }
+.rival-intent-card.threat-기회 { border-color: #38bdf8; }
+
+.intent-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.intent-sender-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sender-avatar {
+  font-size: 28px;
+}
+
+.intent-sender-info h4 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 15px;
+}
+
+.intent-sender-info small {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.intent-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.threat-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.threat-badge.level-위기 { background: #991b1b; color: #fee2e2; }
+.threat-badge.level-경고 { background: #9a3412; color: #ffedd5; }
+.threat-badge.level-주의 { background: #854d0e; color: #fef9c3; }
+.threat-badge.level-기회 { background: #075985; color: #e0f2fe; }
+
+.countdown-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.intent-body h3 {
+  margin: 0 0 6px;
+  color: #f8fafc;
+  font-size: 16px;
+}
+
+.intent-summary {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.intent-countered-notice {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid #10b981;
+}
+
+.countered-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6ee7b7;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.intent-countered-notice p {
+  margin: 0 0 6px;
+  color: #d1fae5;
+  font-size: 11px;
+}
+
+.counter-outcome {
+  color: #a7f3d0;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.intent-counter-actions-block {
+  border-top: 1px solid #23343d;
+  padding-top: 12px;
+}
+
+.counter-prompt {
+  display: block;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.counter-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.counter-action-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: #16222a;
+  border: 1px solid #324752;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.counter-action-card.unaffordable {
+  opacity: 0.55;
+}
+
+.action-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.action-card-top h5 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.action-character {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.action-desc {
+  margin: 0;
+  color: #8b9ca5;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.action-cost-row, .action-hint-row {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.cost-label, .hint-label {
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.cost-values {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.hint-text {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.btn-enact-counter {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #1e40af, #1e3a8a);
+  border: 1px solid #3b82f6;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-enact-counter:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+.btn-enact-counter:disabled {
+  background: #1f2937;
+  border-color: #374151;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.rival-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.rival-roster-card {
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: #111a20;
+  border: 1px solid #23343d;
+}
+
+.roster-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #1c2b33;
+  padding-bottom: 8px;
+}
+
+.roster-avatar { font-size: 24px; }
+.roster-card-header h4 { margin: 0; color: #f1f5f9; font-size: 13px; }
+.roster-card-header small { color: #64748b; font-size: 9px; }
+
+.roster-attitude-pill {
+  margin-left: auto;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 800;
+}
+
+.roster-attitude-pill.attitude-우호 { background: #064e3b; color: #6ee7b7; }
+.roster-attitude-pill.attitude-경계 { background: #7c2d12; color: #fdba74; }
+.roster-attitude-pill.attitude-적대 { background: #7f1d1d; color: #fca5a5; }
+.roster-attitude-pill.attitude-중립 { background: #1e293b; color: #cbd5e1; }
+.roster-attitude-pill.attitude-종주국 { background: #581c87; color: #e9d5ff; }
+
+.roster-card-body {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+}
+
+.roster-card-body > div {
+  display: flex;
+  justify-content: space-between;
+  color: #82929a;
+}
+
+.roster-card-body strong { color: #e2e8f0; }
+.roster-card-body em { color: #cbd5e1; font-style: normal; font-weight: 700; }
+
+.roster-active-intent-badge {
+  margin-top: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Ambitions View */
+.realm-ambitions-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ambitions-hero-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 24px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #17242c, #0f1920);
+  border: 1px solid #2e434f;
+}
+
+.ambitions-kicker {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #38bdf8;
+  font-weight: 800;
+}
+
+.ambitions-hero-banner h2 {
+  margin: 4px 0 6px;
+  color: #f8fafc;
+  font-size: 20px;
+}
+
+.ambitions-hero-banner p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  max-width: 680px;
+  line-height: 1.5;
+}
+
+.chosen-ambition-banner {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid #eab308;
+  text-align: center;
+}
+
+.chosen-ambition-banner span {
+  display: block;
+  font-size: 9px;
+  color: #fef08a;
+}
+
+.chosen-ambition-banner strong {
+  font-size: 13px;
+  color: #fde047;
+}
+
+.ambitions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.ambition-card {
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: #111a20;
+  border: 1px solid #293d48;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ambition-card.is-selected {
+  border-color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.ambition-card.is-achieved {
+  border-color: #fbbf24;
+  background: linear-gradient(145deg, #242215, #141611);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+}
+
+.ambition-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ambition-icon { font-size: 28px; }
+
+.ambition-card-header h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 14px;
+}
+
+.ambition-card-header small {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.ambition-triumph-ribbon {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #b45309, #d97706);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.ambition-chosen-tag {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid #38bdf8;
+  color: #7dd3fc;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.ambition-desc {
+  margin: 0;
+  color: #8b9ca5;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ambition-requirements-list {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid #1c2b33;
+  padding-top: 10px;
+}
+
+.req-header {
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ambition-req-item {
+  display: grid;
+  gap: 3px;
+}
+
+.req-item-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+}
+
+.req-met-text { color: #34d399; font-weight: 700; }
+.req-unmet-text { color: #94a3b8; }
+.req-values { color: #cbd5e1; font-weight: 700; }
+
+.ambition-meter {
+  height: 5px;
+  background: #1e293b;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ambition-meter i {
+  display: block;
+  height: 100%;
+  background: #38bdf8;
+  transition: width 0.3s;
+}
+
+.ambition-meter i.meter-completed {
+  background: #10b981;
+}
+
+.btn-select-ambition {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-select-ambition:hover {
+  background: #334155;
+  border-color: #64748b;
+  color: #f8fafc;
+}
+
+.crisis-monitors-panel {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: #0f171d;
+  border: 1px solid #23343d;
+}
+
+.crisis-monitors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.crisis-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: #141f26;
+  border: 1px solid #283a44;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.crisis-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.crisis-card p {
+  margin: 0;
+  color: #7b8b94;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+/* Triumph & Tragedy Modal */
+.realm-outcome-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 12, 0.85);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.realm-outcome-modal {
+  width: 100%;
+  max-width: 620px;
+  padding: 28px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.realm-outcome-modal.is-triumph {
+  background: linear-gradient(145deg, #1f1d13, #11140f);
+  border: 2px solid #fbbf24;
+  box-shadow: 0 0 35px rgba(251, 191, 36, 0.35);
+}
+
+.realm-outcome-modal.is-tragedy {
+  background: linear-gradient(145deg, #261114, #12090b);
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.35);
+}
+
+.modal-triumph-badge {
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+
+.modal-tragedy-badge {
+  color: #fca5a5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+
+.realm-outcome-modal h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 22px;
+}
+
+.modal-goal-highlight {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.modal-goal-highlight.tragedy {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.modal-goal-highlight h3 {
+  margin: 0 0 4px;
+  color: #fde047;
+  font-size: 15px;
+}
+
+.modal-goal-highlight.tragedy h3 {
+  color: #fca5a5;
+}
+
+.modal-goal-highlight p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.modal-narrative-text {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.modal-stats-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 12px;
+  background: rgba(10, 14, 18, 0.7);
+  border-radius: var(--radius-sm);
+}
+
+.modal-stats-summary span {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.modal-stats-summary strong {
+  color: #f1f5f9;
+  font-size: 13px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.btn-modal-continue {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #ffffff;
+  border: 1px solid #f59e0b;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
+}
+
+.btn-modal-continue.tragedy {
+  background: linear-gradient(135deg, #475569, #334155);
+  border-color: #64748b;
+  box-shadow: none;
+}
+
+.btn-modal-restart {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  color: #ffffff;
+  border: 1px solid #ef4444;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Map Rival Box */
+.neighbor-rival-intent-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(24, 32, 38, 0.9);
+  border: 1px solid #384852;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.neighbor-rival-intent-box.threat-위기 { border-color: #ef4444; background: rgba(36, 16, 20, 0.9); }
+.neighbor-rival-intent-box.threat-경고 { border-color: #f97316; background: rgba(36, 22, 16, 0.9); }
+.neighbor-rival-intent-box.threat-기회 { border-color: #38bdf8; background: rgba(14, 28, 38, 0.9); }
+.neighbor-rival-intent-box.is-countered { border-color: #10b981; background: rgba(12, 30, 24, 0.9); }
+
+.intent-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.intent-box-header .threat-tag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #374151;
+  color: #f3f4f6;
+}
+
+.intent-box-summary {
+  margin: 0;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.intent-box-status {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: 4px;
+}
+
+.highlight-rival-threat {
+  border-left: 3px solid #f59e0b;
+  padding-left: 6px;
+}
+
