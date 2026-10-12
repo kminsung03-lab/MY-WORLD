@@ -45,6 +45,33 @@ export interface TradeRouteEvaluation {
   net: RealmResources
 }
 
+export type DiplomaticStage = 'none' | 'non_aggression' | 'alliance' | 'vassal'
+
+export interface DiplomaticRouteEvaluation {
+  neighborId: string
+  neighborName: string
+  stage: DiplomaticStage
+  isSuspended: boolean
+  suspendReason?: string
+  costs: RealmResources
+  yields: RealmResources
+  net: RealmResources
+  manpowerYield: number
+  deltaRelation: number
+  deltaLoyalty: number
+}
+
+export interface DiplomacySummary {
+  evaluations: DiplomaticRouteEvaluation[]
+  totalCosts: RealmResources
+  totalYields: RealmResources
+  totalNet: RealmResources
+  totalManpowerYield: number
+  activeAllianceCount: number
+  activeVassalCount: number
+  suspendedCount: number
+}
+
 export interface NeighborRealm {
   id: string
   name: string
@@ -59,6 +86,11 @@ export interface NeighborRealm {
   tradeContract?: TradeContractId | null
   claim: boolean
   annexed: boolean
+  diplomaticStage?: DiplomaticStage
+  treatyMonths?: number
+  subjectLoyalty?: number
+  treatySuspended?: boolean
+  treatySuspendReason?: string
   lastAction?: string
   lastActionDate?: string
 }

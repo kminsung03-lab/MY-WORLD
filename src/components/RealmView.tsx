@@ -1,17 +1,21 @@
 import { useMemo, useState } from 'react'
 import {
   CAMPAIGN_ORDERS,
+  DIPLOMATIC_STAGES,
   DOCTRINE_LABELS,
   GOVERNANCE_MODES,
   INDUSTRIES,
   POLICIES,
   TERRITORY_PROFILES,
   TRADE_CONTRACTS,
+  VASSAL_PROFILES,
   calculateArmyPower,
   calculateNeighborEfficiency,
+  checkDiplomaticRequirements,
 } from '../constants/realmData'
 import type { RealmHandle } from '../hooks/useRealmState'
 import type {
+  DiplomaticStage,
   IndustryId,
   NeighborRealm,
   PolicyId,
@@ -99,6 +103,9 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     advanceMonth,
     resolveWorldEvent,
     resetRealm,
+    signTreaty,
+    breakTreaty,
+    annexSubjectPeacefully,
   } = realm
 
   const armyPower = useMemo(
@@ -106,6 +113,12 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     [state.soldiers, state.levies, state.policies],
   )
   const annexedCount = state.neighbors.filter((neighbor) => neighbor.annexed).length
+  const projectedNet = {
+    treasury: monthlyProjection.treasury - monthlyProjection.campaignCost.treasury,
+    grain: monthlyProjection.grain - monthlyProjection.campaignCost.grain,
+    iron: monthlyProjection.iron - monthlyProjection.campaignCost.iron,
+    timber: monthlyProjection.timber - monthlyProjection.campaignCost.timber,
+  }
 
   const canUpgrade = (id: IndustryId) => {
     const definition = INDUSTRIES.find((industry) => industry.id === id)!
@@ -185,10 +198,10 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
 
 
       <div className="realm-resource-bar">
-        <div><span>🪙 국고</span><strong>{state.resources.treasury}</strong><small>{signed(monthlyProjection.treasury)}/월</small></div>
-        <div><span>🌾 식량</span><strong>{state.resources.grain}</strong><small>{signed(monthlyProjection.grain)}/월</small></div>
-        <div><span>⛓ 철</span><strong>{state.resources.iron}</strong><small>+{monthlyProjection.iron}/월</small></div>
-        <div><span>🪵 목재</span><strong>{state.resources.timber}</strong><small>+{monthlyProjection.timber}/월</small></div>
+        <div><span>🪙 국고</span><strong>{state.resources.treasury}</strong><small>{signed(projectedNet.treasury)}/월</small></div>
+        <div><span>🌾 식량</span><strong>{state.resources.grain}</strong><small>{signed(projectedNet.grain)}/월</small></div>
+        <div><span>⛓ 철</span><strong>{state.resources.iron}</strong><small>{signed(projectedNet.iron)}/월</small></div>
+        <div><span>🪵 목재</span><strong>{state.resources.timber}</strong><small>{signed(projectedNet.timber)}/월</small></div>
         <div className="realm-capacity"><span>🏛 행정력</span><strong>{state.capacities.administration}</strong><small>명령 가능</small></div>
         <div className="realm-capacity"><span>🤝 외교력</span><strong>{state.capacities.diplomacy}</strong><small>명령 가능</small></div>
         <div className="realm-capacity"><span>⚔ 지휘력</span><strong>{state.capacities.command}</strong><small>명령 가능</small></div>
@@ -286,6 +299,15 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                 </dd>
               </div>
               <div>
+                <dt>동맹·봉신 국고 순변동</dt>
+                <dd className={monthlyProjection.diplomacyNet.treasury < 0 ? 'negative' : ''}>
+                  {signed(monthlyProjection.diplomacyNet.treasury)}
+                  {monthlyProjection.suspendedDiplomacyCount > 0 && (
+                    <small className="negative"> (⚠️ {monthlyProjection.suspendedDiplomacyCount}곳 의무 중단)</small>
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt>통치령 국고 순수익</dt>
                 <dd className={monthlyProjection.dominionNet.treasury < 0 ? 'negative' : ''}>
                   {signed(monthlyProjection.dominionNet.treasury)}
@@ -297,22 +319,25 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                 </dd>
               </div>
               <div><dt>군대 유지비</dt><dd className="negative">−{monthlyProjection.militaryUpkeep}</dd></div>
-              <div className="total"><dt>국고 순변동</dt><dd>{signed(monthlyProjection.treasury)}</dd></div>
+              {monthlyProjection.campaignCost.treasury > 0 && (
+                <div><dt>원정 작전비</dt><dd className="negative">−{monthlyProjection.campaignCost.treasury}</dd></div>
+              )}
+              <div className="total"><dt>국고 순변동</dt><dd>{signed(projectedNet.treasury)}</dd></div>
               <div>
                 <dt>식량 순변동</dt>
                 <dd>
-                  {signed(monthlyProjection.grain)}
+                  {signed(projectedNet.grain)}
                   <small style={{ color: '#8899a6', marginLeft: '4px' }}>
-                    (교역 {signed(monthlyProjection.tradeEvaluation.totalNet.grain)} · 통치령 {signed(monthlyProjection.dominionNet.grain)})
+                    (교역 {signed(monthlyProjection.tradeEvaluation.totalNet.grain)} · 봉신 {signed(monthlyProjection.diplomacyNet.grain)} · 통치령 {signed(monthlyProjection.dominionNet.grain)} · 원정 −{monthlyProjection.campaignCost.grain})
                   </small>
                 </dd>
               </div>
               <div>
                 <dt>철 / 목재 순변동</dt>
                 <dd>
-                  ⛓{signed(monthlyProjection.iron)} · 🪵{signed(monthlyProjection.timber)}
+                  ⛓{signed(projectedNet.iron)} · 🪵{signed(projectedNet.timber)}
                   <small style={{ color: '#8899a6', marginLeft: '4px' }}>
-                    (통치령 ⛓{signed(monthlyProjection.dominionNet.iron)} · 🪵{signed(monthlyProjection.dominionNet.timber)})
+                    (봉신 ⛓{signed(monthlyProjection.diplomacyNet.iron)} · 🪵{signed(monthlyProjection.diplomacyNet.timber)} · 통치령 ⛓{signed(monthlyProjection.dominionNet.iron)} · 🪵{signed(monthlyProjection.dominionNet.timber)} · 원정 ⛓−{monthlyProjection.campaignCost.iron} · 🪵−{monthlyProjection.campaignCost.timber})
                   </small>
                 </dd>
               </div>
@@ -433,6 +458,16 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                     전선 철수
                   </button>
                 </div>
+
+                {monthlyProjection.activeAllies && monthlyProjection.activeAllies.length > 0 && (
+                  <div className="campaign-allied-support-banner">
+                    <span className="support-badge">⚔️ 동맹군 참전 지원</span>
+                    <div className="support-details">
+                      <strong>{monthlyProjection.activeAllies.map((a) => `${a.icon} ${a.name}`).join(', ')}</strong>
+                      <span>(지원 전투력 +{monthlyProjection.alliedAuxiliaryPower} · 아군 전사자 {monthlyProjection.activeAllies.length * 15}% 감축)</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="campaign-stat-gauges">
                   <div className="campaign-gauge-card">
@@ -564,6 +599,18 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                         {isWarTarget && <span className="war-tag">⚔️ 전쟁 중</span>}
                         {neighbor.tradeActive && <span className="trade-tag">교역 중</span>}
                         {neighbor.claim && <span className="claim-tag">명분 보유</span>}
+                        {neighbor.diplomaticStage === 'non_aggression' && (
+                          <span className="pact-tag">🕊️ 불가침 조약 ({neighbor.treatyMonths ?? 0}개월)</span>
+                        )}
+                        {neighbor.diplomaticStage === 'alliance' && (
+                          <span className="alliance-tag">⚔️ 군사 동맹 ({neighbor.treatyMonths ?? 0}개월)</span>
+                        )}
+                        {neighbor.diplomaticStage === 'vassal' && (
+                          <span className="vassal-tag">👑 봉신국 ({neighbor.treatyMonths ?? 0}개월)</span>
+                        )}
+                        {neighbor.treatySuspended && (
+                          <span className="treaty-suspended-tag">⚠️ 협약 의무 체납</span>
+                        )}
                       </div>
                       <div className="neighbor-recent-box">
                         <span className="recent-label">최근 동향</span>
@@ -660,6 +707,166 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                           </div>
                         )
                       })()}
+
+                      {!neighbor.annexed && neighbor.id !== 'crown' && (() => {
+                        const currentStage: DiplomaticStage = neighbor.diplomaticStage || 'none'
+                        const stageDef = DIPLOMATIC_STAGES[currentStage]
+                        const isVassal = currentStage === 'vassal'
+                        const isAlly = currentStage === 'alliance'
+                        const vassalProfile = VASSAL_PROFILES[neighbor.id]
+
+                        const nextStage: DiplomaticStage | 'peaceful_annexation' =
+                          currentStage === 'none'
+                            ? 'non_aggression'
+                            : currentStage === 'non_aggression'
+                            ? 'alliance'
+                            : currentStage === 'alliance'
+                            ? 'vassal'
+                            : 'peaceful_annexation'
+
+                        const nextStageName =
+                          nextStage === 'peaceful_annexation'
+                            ? '평화적 영지 병합'
+                            : DIPLOMATIC_STAGES[nextStage].name
+
+                        const reqResult = checkDiplomaticRequirements(
+                          nextStage,
+                          neighbor,
+                          state,
+                          monthlyProjection.grossIncome,
+                          armyPower,
+                        )
+
+                        const hasTreaty = currentStage !== 'none'
+
+                        return (
+                          <div className="neighbor-diplomacy-panel">
+                            <div className="diplomacy-panel-header">
+                              <div className="diplomacy-panel-title">
+                                <span className={`diplomacy-stage-badge stage-${currentStage}`}>
+                                  {stageDef.icon} {stageDef.name}
+                                </span>
+                                {hasTreaty && (
+                                  <span className="diplomacy-duration-tag">
+                                    {neighbor.treatyMonths ?? 0}개월차 유지
+                                  </span>
+                                )}
+                              </div>
+                              <div className="diplomacy-panel-meta">
+                                {isAlly && (
+                                  <span className="alliance-upkeep-tag" title="매달 국고 지출">
+                                    유지비: −🪙12/월 · 원정 지원
+                                  </span>
+                                )}
+                                {isVassal && (
+                                  <span className="vassal-tribute-tag" title="종주국 보호비 및 조공 수령">
+                                    보호비: −🪙10/월 · 조공 수령
+                                  </span>
+                                )}
+                                {neighbor.treatySuspended && (
+                                  <span className="diplomacy-suspended-alert">
+                                    ⚠️ {neighbor.treatySuspendReason || '의무 중단 중'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {isVassal && (
+                              <div className="vassal-loyalty-container">
+                                <div className="vassal-loyalty-header">
+                                  <span className="loyalty-label">👑 속국 충성도</span>
+                                  <strong className="loyalty-val">
+                                    {neighbor.subjectLoyalty ?? 60}%
+                                    <small className={neighbor.treatySuspended ? 'text-danger' : 'text-good'}>
+                                      {neighbor.treatySuspended ? ' (체납으로 −5%/월)' : ' (+3%/월 상승)'}
+                                    </small>
+                                  </strong>
+                                </div>
+                                <div className="realm-meter purple">
+                                  <i style={{ width: `${neighbor.subjectLoyalty ?? 60}%` }} />
+                                </div>
+                                <div className="vassal-tribute-desc">
+                                  <small>📦 {vassalProfile?.characterDesc || '고유 특화 조공 및 인력 지원'}</small>
+                                </div>
+                              </div>
+                            )}
+
+                            {neighbor.treatySuspended && (
+                              <div className="diplomacy-suspended-warning">
+                                <span>⚠️ {neighbor.treatySuspendReason}</span>
+                                <small>국고가 충족될 때까지 협약 혜택이 중지되고 매달 신뢰가 하락합니다.</small>
+                              </div>
+                            )}
+
+                            <div className="diplomacy-progression-box">
+                              <div className="progression-box-header">
+                                <div className="progression-title">
+                                  <small>DIPLOMATIC PATHWAY · 다음 외교 단계</small>
+                                  <h4>
+                                    {nextStage === 'peaceful_annexation' ? '🕊️' : DIPLOMATIC_STAGES[nextStage].icon}{' '}
+                                    {nextStageName}
+                                  </h4>
+                                </div>
+                                {nextStage === 'peaceful_annexation' ? (
+                                  <span className="peaceful-annex-tag">최종 평화 확장</span>
+                                ) : (
+                                  <span className="progression-stage-tag">{DIPLOMATIC_STAGES[nextStage].character}</span>
+                                )}
+                              </div>
+
+                              <p className="progression-desc">
+                                {nextStage === 'peaceful_annexation'
+                                  ? '전쟁 없이 자치령으로 완전 병합합니다. (초기 충성 80% · 불안 10% · 통합 35%)'
+                                  : DIPLOMATIC_STAGES[nextStage].description}
+                              </p>
+
+                              <div className="progression-checklist">
+                                {reqResult.checks.map((check) => (
+                                  <div
+                                    key={check.id}
+                                    className={`check-item ${check.met ? 'check-met' : 'check-unmet'}`}
+                                  >
+                                    <span className="check-icon">{check.met ? '✓' : '✗'}</span>
+                                    <span className="check-label">{check.label}</span>
+                                    {check.detail && <span className="check-detail">({check.detail})</span>}
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="progression-actions-row">
+                                {nextStage === 'peaceful_annexation' ? (
+                                  <button
+                                    disabled={!reqResult.canEnact || isWarTarget}
+                                    className={`btn-annex-peacefully ${reqResult.canEnact ? 'ready' : ''}`}
+                                    onClick={() => annexSubjectPeacefully(neighbor.id)}
+                                  >
+                                    🕊️ 평화적 영지 병합 <small>(🏛️2 · 🤝2 · 🪙120)</small>
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled={!reqResult.canEnact || isWarTarget}
+                                    className={`btn-sign-treaty ${reqResult.canEnact ? 'ready' : ''}`}
+                                    onClick={() => signTreaty(neighbor.id, nextStage)}
+                                  >
+                                    {DIPLOMATIC_STAGES[nextStage].icon} {nextStageName} 체결{' '}
+                                    <small>({DIPLOMATIC_STAGES[nextStage].upfrontCostDesc})</small>
+                                  </button>
+                                )}
+
+                                {hasTreaty && (
+                                  <button
+                                    className="btn-break-treaty"
+                                    onClick={() => breakTreaty(neighbor.id)}
+                                    title={`${stageDef.breakPenaltyDesc}`}
+                                  >
+                                    조약 일방 파기
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {neighbor.annexed && (() => {
@@ -725,18 +932,53 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
                         {neighbor.id !== 'crown' && (
                           <button
                             className="pressure"
-                            disabled={isWarTarget || neighbor.claim || state.capacities.command < 1 || state.legitimacy < 45}
+                            disabled={
+                              isWarTarget ||
+                              neighbor.claim ||
+                              (!!neighbor.diplomaticStage && neighbor.diplomaticStage !== 'none') ||
+                              state.capacities.command < 1 ||
+                              state.legitimacy < 45
+                            }
                             onClick={() => diplomaticAction(neighbor.id, 'pressure')}
-                            title={isWarTarget ? '이미 전면 교전 중인 세력입니다' : undefined}
+                            title={
+                              isWarTarget
+                                ? '이미 전면 교전 중인 세력입니다'
+                                : neighbor.diplomaticStage && neighbor.diplomaticStage !== 'none'
+                                ? '조약 체결 중에는 영유권을 조작할 수 없습니다 (조약 파기 필요)'
+                                : undefined
+                            }
                           >
-                            영유권 주장
+                            {neighbor.diplomaticStage && neighbor.diplomaticStage !== 'none'
+                              ? '영유권 주장 (조약 파기 필요)'
+                              : '영유권 주장'}
+                          </button>
+                        )}
+                        {neighbor.id !== 'crown' && neighbor.claim && !isWarTarget && (
+                          <button
+                            disabled={state.capacities.diplomacy < 1 || state.resources.treasury < 15}
+                            onClick={() => diplomaticAction(neighbor.id, 'renounce')}
+                            title="영유권 명분을 철회하면 평화 외교 경로를 다시 시작할 수 있습니다"
+                          >
+                            영유권 철회 (🤝1 · 🪙15)
                           </button>
                         )}
                         {neighbor.id !== 'crown' && neighbor.claim && (
                           isWarTarget ? (
                             <button disabled className="war-active-btn">원정 진행 중</button>
                           ) : (
-                            <button className="war" disabled={!invasionReady} onClick={() => launchCampaign(neighbor.id)}>
+                            <button
+                              className="war"
+                              disabled={
+                                !invasionReady ||
+                                (!!neighbor.diplomaticStage && neighbor.diplomaticStage !== 'none')
+                              }
+                              onClick={() => launchCampaign(neighbor.id)}
+                              title={
+                                neighbor.diplomaticStage && neighbor.diplomaticStage !== 'none'
+                                  ? '조약 체결 세력에는 원정을 개시할 수 없습니다 (조약 파기 필요)'
+                                  : undefined
+                              }
+                            >
                               {state.activeCampaign ? '원정 진행 중' : '원정 개시'}
                             </button>
                           )

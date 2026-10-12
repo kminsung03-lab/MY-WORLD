@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  DIPLOMATIC_STAGES,
   DOCTRINE_LABELS,
   GOVERNANCE_MODES,
   TERRITORY_PROFILES,
   TRADE_CONTRACTS,
   type TradeContractDefinition,
+  VASSAL_PROFILES,
   calculateArmyPower,
 } from '../constants/realmData'
 import type { GameState } from '../types/game'
@@ -912,8 +914,20 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                 <div className="strategic-neighbor-box">
                   <div className="strategic-neighbor-header">
                     <span className="strategic-subkicker">변경백령 외교 정보</span>
-                    <span className={`neighbor-status-pill ${matchedNeighbor.annexed ? 'annexed' : matchedNeighbor.claim ? 'claim' : matchedNeighbor.tradeActive ? 'trade' : ''}`}>
-                      {matchedNeighbor.annexed ? '🚩 병합됨' : matchedNeighbor.claim ? '⚔️ 명분 보유' : matchedNeighbor.tradeActive ? '⛵ 교역 중' : matchedNeighbor.attitude}
+                    <span className={`neighbor-status-pill ${matchedNeighbor.annexed ? 'annexed' : matchedNeighbor.diplomaticStage === 'vassal' ? 'vassal' : matchedNeighbor.diplomaticStage === 'alliance' ? 'alliance' : matchedNeighbor.diplomaticStage === 'non_aggression' ? 'pact' : matchedNeighbor.claim ? 'claim' : matchedNeighbor.tradeActive ? 'trade' : ''}`}>
+                      {matchedNeighbor.annexed
+                        ? '🚩 병합됨'
+                        : matchedNeighbor.diplomaticStage === 'vassal'
+                        ? '👑 봉신국'
+                        : matchedNeighbor.diplomaticStage === 'alliance'
+                        ? '⚔️ 군사 동맹'
+                        : matchedNeighbor.diplomaticStage === 'non_aggression'
+                        ? '🕊️ 불가침 조약'
+                        : matchedNeighbor.claim
+                        ? '⚔️ 명분 보유'
+                        : matchedNeighbor.tradeActive
+                        ? '⛵ 교역 중'
+                        : matchedNeighbor.attitude}
                     </span>
                   </div>
                   <div className="strategic-neighbor-name">
@@ -926,6 +940,64 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                         {matchedNeighbor.relation >= 0 ? `+${matchedNeighbor.relation}` : matchedNeighbor.relation} ({matchedNeighbor.attitude})
                       </span>
                     </div>
+
+                    <div className="neighbor-row">
+                      <span className="neighbor-k">외교 조약</span>
+                      <span className="neighbor-v">
+                        {matchedNeighbor.diplomaticStage === 'vassal' ? (
+                          <span className="text-purple">
+                            {DIPLOMATIC_STAGES.vassal.icon} {DIPLOMATIC_STAGES.vassal.name} {matchedNeighbor.treatySuspended
+                              ? '(보호 의무 체납 · 조공 중단)'
+                              : `(보호비 🪙10/월 · 조공: ${VASSAL_PROFILES[matchedNeighbor.id]?.characterDesc || '특화 조공'})`}
+                          </span>
+                        ) : matchedNeighbor.diplomaticStage === 'alliance' ? (
+                          <span className="text-good">
+                            {DIPLOMATIC_STAGES.alliance.icon} {DIPLOMATIC_STAGES.alliance.name} {matchedNeighbor.treatySuspended
+                              ? '(유지비 체납 · 원정 지원 중단)'
+                              : `(원정 지원 +${matchedNeighbor.strength * 5} · 유지비 🪙12/월)`}
+                          </span>
+                        ) : matchedNeighbor.diplomaticStage === 'non_aggression' ? (
+                          <span className="text-cyan">
+                            {DIPLOMATIC_STAGES.non_aggression.icon} {DIPLOMATIC_STAGES.non_aggression.name} (국경 평화 유지)
+                          </span>
+                        ) : (
+                          '🌐 조약 미체결'
+                        )}
+                      </span>
+                    </div>
+
+                    {matchedNeighbor.treatySuspended && (
+                      <div className="neighbor-row text-danger">
+                        <span className="neighbor-k">조약 경고</span>
+                        <span className="neighbor-v">⚠️ {matchedNeighbor.treatySuspendReason || '협약 의무 체납 중'}</span>
+                      </div>
+                    )}
+
+                    {matchedNeighbor.diplomaticStage === 'vassal' && (
+                      <>
+                        <div className="neighbor-row">
+                          <span className="neighbor-k">속국 충성도</span>
+                          <span className={`neighbor-v ${matchedNeighbor.treatySuspended ? 'text-danger' : 'text-good'}`}>
+                            ❤️ {matchedNeighbor.subjectLoyalty ?? 60}% {matchedNeighbor.treatySuspended ? '(체납으로 −5%/월)' : '(+3%/월 상승)'}
+                          </span>
+                        </div>
+                        <div className="neighbor-row">
+                          <span className="neighbor-k">봉신 유지 기간</span>
+                          <span className="neighbor-v">
+                            {matchedNeighbor.treatyMonths ?? 0}개월 경과 (최소 6개월)
+                          </span>
+                        </div>
+                        <div className="neighbor-row">
+                          <span className="neighbor-k">평화 병합 요건</span>
+                          <span className={`neighbor-v ${(matchedNeighbor.treatyMonths ?? 0) >= 6 && (matchedNeighbor.subjectLoyalty ?? 0) >= 80 && matchedNeighbor.relation >= 80 ? 'text-good font-bold' : 'text-amber'}`}>
+                            {(matchedNeighbor.treatyMonths ?? 0) >= 6 && (matchedNeighbor.subjectLoyalty ?? 0) >= 80 && matchedNeighbor.relation >= 80
+                              ? '✓ 평화 병합 조건 완비 (영지 집무실에서 병합 가능)'
+                              : `준비 중 (유지 ${matchedNeighbor.treatyMonths ?? 0}/6개월 · 충성 ${matchedNeighbor.subjectLoyalty ?? 0}/80% · 관계 ${matchedNeighbor.relation}/80)`}
+                          </span>
+                        </div>
+                      </>
+                    )}
+
                     <div className="neighbor-row">
                       <span className="neighbor-k">교역 계약</span>
                       <span className="neighbor-v">

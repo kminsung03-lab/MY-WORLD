@@ -6,6 +6,8 @@ import {
   POLICIES,
   TRADE_CONTRACTS,
   calculateArmyPower,
+  checkDiplomaticRequirements,
+  evaluateDiplomacy,
   evaluateGovernedTerritories,
   evaluateTradeRoutes,
 } from '../constants/realmData'
@@ -13,6 +15,7 @@ import { generateWorldEvent, getDeterministicSeed } from '../constants/worldEven
 import type {
   AnnexedTerritoryGovernance,
   CampaignOrderId,
+  DiplomaticStage,
   Doctrine,
   GovernanceMode,
   IndustryId,
@@ -48,11 +51,24 @@ export function useRealmState() {
           const tradeActive = !!savedN.tradeActive
           const tradeContract: TradeContractId | null =
             savedN.tradeContract ?? (tradeActive ? 'balanced_exchange' : null)
+          const diplomaticStage: DiplomaticStage = savedN.diplomaticStage ?? 'none'
+          const treatyMonths = typeof savedN.treatyMonths === 'number' ? savedN.treatyMonths : 0
+          const subjectLoyalty = typeof savedN.subjectLoyalty === 'number'
+            ? savedN.subjectLoyalty
+            : (diplomaticStage === 'vassal' ? 60 : 0)
+          const treatySuspended = !!savedN.treatySuspended
+          const treatySuspendReason = savedN.treatySuspendReason || undefined
+
           return {
             ...fallback,
             ...savedN,
             tradeActive,
             tradeContract,
+            diplomaticStage,
+            treatyMonths,
+            subjectLoyalty,
+            treatySuspended,
+            treatySuspendReason,
             lastAction: savedN.lastAction || undefined,
             lastActionDate: savedN.lastActionDate || undefined,
           }
@@ -161,13 +177,28 @@ export function useRealmState() {
       state.activeCampaign?.targetId,
     )
 
-    // 3) Governance / cultural-integration costs evaluate against remaining resources
-    // after campaign cost plus actual active trade costs
-    const resourcesForDominion: RealmResources = {
+    // 3) Diplomatic agreements / subject obligations evaluate against remaining resources
+    // after campaign and active trade costs
+    const resourcesForDiplomacy: RealmResources = {
       treasury: Math.max(0, resourcesForTrade.treasury - tradeEval.totalCosts.treasury),
       grain: Math.max(0, resourcesForTrade.grain - tradeEval.totalCosts.grain),
       iron: Math.max(0, resourcesForTrade.iron - tradeEval.totalCosts.iron),
       timber: Math.max(0, resourcesForTrade.timber - tradeEval.totalCosts.timber),
+    }
+
+    const diplomacyEval = evaluateDiplomacy(
+      state.neighbors,
+      resourcesForDiplomacy,
+      state.activeCampaign?.targetId,
+    )
+
+    // 4) Governance / cultural-integration costs evaluate against remaining resources
+    // after campaign, trade, and diplomatic obligations
+    const resourcesForDominion: RealmResources = {
+      treasury: Math.max(0, resourcesForDiplomacy.treasury - diplomacyEval.totalCosts.treasury),
+      grain: Math.max(0, resourcesForDiplomacy.grain - diplomacyEval.totalCosts.grain),
+      iron: Math.max(0, resourcesForDiplomacy.iron - diplomacyEval.totalCosts.iron),
+      timber: Math.max(0, resourcesForDiplomacy.timber - diplomacyEval.totalCosts.timber),
     }
 
     const dominionEval = evaluateGovernedTerritories(
@@ -181,13 +212,19 @@ export function useRealmState() {
     const baseIron = ironworks * 7
     const baseTimber = lumber * 10
 
+    const activeAllies = state.neighbors.filter(
+      (n) => n.diplomaticStage === 'alliance' && !n.annexed && n.id !== state.activeCampaign?.targetId &&
+        diplomacyEval.evaluations.some((evaluation) => evaluation.neighborId === n.id && !evaluation.isSuspended),
+    )
+    const alliedAuxiliaryPower = activeAllies.reduce((sum, a) => sum + a.strength * 5, 0)
+
     return {
-      treasury: baseGrossIncome + tradeEval.totalNet.treasury + dominionEval.totalNet.treasury - militaryUpkeep,
+      treasury: baseGrossIncome + tradeEval.totalNet.treasury + diplomacyEval.totalNet.treasury + dominionEval.totalNet.treasury - militaryUpkeep,
       grossIncome: baseGrossIncome,
       militaryUpkeep,
-      grain: baseGrain + tradeEval.totalNet.grain + dominionEval.totalNet.grain,
-      iron: baseIron + tradeEval.totalNet.iron + dominionEval.totalNet.iron,
-      timber: baseTimber + tradeEval.totalNet.timber + dominionEval.totalNet.timber,
+      grain: baseGrain + tradeEval.totalNet.grain + diplomacyEval.totalNet.grain + dominionEval.totalNet.grain,
+      iron: baseIron + tradeEval.totalNet.iron + diplomacyEval.totalNet.iron + dominionEval.totalNet.iron,
+      timber: baseTimber + tradeEval.totalNet.timber + diplomacyEval.totalNet.timber + dominionEval.totalNet.timber,
       baseIndustryIncome: baseGrossIncome,
       baseGrain,
       baseIron,
@@ -195,6 +232,16 @@ export function useRealmState() {
       activeTrades: tradeEval.activeCount,
       suspendedTrades: tradeEval.suspendedCount,
       tradeEvaluation: tradeEval,
+      diplomacyEvaluation: diplomacyEval,
+      diplomacyNet: diplomacyEval.totalNet,
+      diplomacyCosts: diplomacyEval.totalCosts,
+      diplomacyYields: diplomacyEval.totalYields,
+      diplomaticManpowerYield: diplomacyEval.totalManpowerYield,
+      activeAlliances: diplomacyEval.activeAllianceCount,
+      activeVassals: diplomacyEval.activeVassalCount,
+      suspendedDiplomacyCount: diplomacyEval.suspendedCount,
+      activeAllies,
+      alliedAuxiliaryPower,
       dominionEvaluation: dominionEval,
       dominionNet: dominionEval.totalNet,
       dominionCosts: dominionEval.totalCosts,
@@ -204,6 +251,7 @@ export function useRealmState() {
       stalledDominionCount: dominionEval.stalledCount,
       campaignCost,
       resourcesForTrade,
+      resourcesForDiplomacy,
       resourcesForDominion,
     }
   }, [state])
@@ -278,7 +326,7 @@ export function useRealmState() {
     })
   }
 
-  const diplomaticAction = (neighborId: string, action: 'improve' | 'trade' | 'pressure') => {
+  const diplomaticAction = (neighborId: string, action: 'improve' | 'trade' | 'pressure' | 'renounce') => {
     setState((previous) => {
       const index = previous.neighbors.findIndex((neighbor) => neighbor.id === neighborId)
       if (index < 0) return previous
@@ -301,13 +349,27 @@ export function useRealmState() {
         neighbor.tradeContract = 'balanced_exchange'
         neighbor.relation = clamp(neighbor.relation + 6, -100, 100)
         addLog(next, `${target.name} 교역로 개설`, `${target.specialty} 상단이 국경을 오가기 시작했습니다. [균형 교역 협정]이 기본 체결되었습니다.`, 'good')
-      } else {
-        if (target.id === 'crown' || target.claim || previous.capacities.command < 1 || previous.legitimacy < 45) return previous
+      } else if (action === 'pressure') {
+        if (
+          target.id === 'crown' ||
+          target.claim ||
+          (target.diplomaticStage && target.diplomaticStage !== 'none') ||
+          previous.capacities.command < 1 ||
+          previous.legitimacy < 45
+        )
+          return previous
         next.capacities.command -= 1
         neighbor.claim = true
         neighbor.relation = clamp(neighbor.relation - 22, -100, 100)
         next.royalFavor = clamp(next.royalFavor - 4, 0, 100)
         addLog(next, `${target.name}에 대한 명분 조작`, '옛 문서와 국경 분쟁을 근거로 영유권을 공표했습니다. 상대가 강하게 반발합니다.', 'danger')
+      } else {
+        if (target.id === 'crown' || !target.claim || previous.capacities.diplomacy < 1 || previous.resources.treasury < 15) return previous
+        next.capacities.diplomacy -= 1
+        next.resources.treasury -= 15
+        neighbor.claim = false
+        neighbor.relation = clamp(neighbor.relation + 8, -100, 100)
+        addLog(next, `${target.name} 영유권 주장 철회`, '국경 분쟁의 명분을 공식 철회하고 화해 사절단을 파견했습니다. (외교력 1, 금화 15 소모 · 관계도 +8)', 'good')
       }
       return next
     })
@@ -366,6 +428,202 @@ export function useRealmState() {
     })
   }
 
+  const signTreaty = (neighborId: string, stage: 'non_aggression' | 'alliance' | 'vassal') => {
+    setState((previous) => {
+      const index = previous.neighbors.findIndex((n) => n.id === neighborId)
+      if (index < 0) return previous
+      const target = previous.neighbors[index]
+      if (target.annexed || target.id === 'crown' || previous.activeCampaign?.targetId === neighborId) return previous
+
+      const armyPower = calculateArmyPower(previous.soldiers, previous.levies, previous.policies.includes('standing_guard'))
+      const reqs = checkDiplomaticRequirements(stage, target, previous, monthlyProjection.grossIncome, armyPower)
+      if (!reqs.canEnact) return previous
+
+      const next = structuredClone(previous)
+      const neighbor = next.neighbors[index]
+
+      if (stage === 'non_aggression') {
+        next.capacities.diplomacy -= 1
+        next.resources.treasury -= 25
+        neighbor.diplomaticStage = 'non_aggression'
+        neighbor.treatyMonths = 0
+        neighbor.treatySuspended = false
+        neighbor.treatySuspendReason = undefined
+        neighbor.claim = false
+        neighbor.relation = clamp(neighbor.relation + 12, -100, 100)
+        addLog(
+          next,
+          `[불가침 조약 체결] ${target.name}`,
+          `${target.name}과(와) 상호 국경 침범을 금지하고 영구적 평화를 지향하는 불가침 조약을 정식 조인했습니다. (외교력 1, 🪙25 소모 · 관계도 +12)`,
+          'good',
+        )
+      } else if (stage === 'alliance') {
+        next.capacities.diplomacy -= 2
+        next.resources.treasury -= 50
+        neighbor.diplomaticStage = 'alliance'
+        neighbor.treatyMonths = 0
+        neighbor.treatySuspended = false
+        neighbor.treatySuspendReason = undefined
+        neighbor.claim = false
+        neighbor.relation = clamp(neighbor.relation + 18, -100, 100)
+        next.legitimacy = clamp(next.legitimacy + 2, 0, 100)
+        addLog(
+          next,
+          `[군사 동맹 체결] ${target.name}`,
+          `${target.name}과(와) 피의 맹약을 맺고 상호 군사 동맹을 선포했습니다. 향후 군사 원정 시 동맹군이 전선에 참전하며 매달 🪙12의 동맹 유지비가 지출됩니다. (외교력 2, 🪙50 소모 · 정통성 +2)`,
+          'royal',
+        )
+      } else if (stage === 'vassal') {
+        next.capacities.diplomacy -= 2
+        next.capacities.administration -= 1
+        next.resources.treasury -= 90
+        neighbor.diplomaticStage = 'vassal'
+        neighbor.treatyMonths = 0
+        neighbor.subjectLoyalty = 60
+        neighbor.treatySuspended = false
+        neighbor.treatySuspendReason = undefined
+        neighbor.claim = false
+        neighbor.relation = clamp(neighbor.relation + 20, -100, 100)
+        next.legitimacy = clamp(next.legitimacy + 4, 0, 100)
+        next.autonomy = clamp(next.autonomy + 4, 0, 100)
+        addLog(
+          next,
+          `[속국 봉신화] ${target.name}`,
+          `${target.name}의 통치자가 에르덴 변경백에게 무릎을 꿇고 종주권을 인정했습니다! 매달 고유 특화 조공과 인력을 공납하며, 지속적인 신뢰 구축 시 평화적 완전 병합이 가능합니다. (외교 2, 행정 1, 🪙90 소모 · 초기 충성 60%)`,
+          'royal',
+        )
+      }
+
+      return next
+    })
+  }
+
+  const breakTreaty = (neighborId: string) => {
+    setState((previous) => {
+      const index = previous.neighbors.findIndex((n) => n.id === neighborId)
+      if (index < 0) return previous
+      const target = previous.neighbors[index]
+      const currentStage = target.diplomaticStage || 'none'
+      if (currentStage === 'none' || target.annexed || target.id === 'crown') return previous
+
+      const next = structuredClone(previous)
+      const neighbor = next.neighbors[index]
+
+      neighbor.diplomaticStage = 'none'
+      neighbor.treatyMonths = 0
+      neighbor.subjectLoyalty = 0
+      neighbor.treatySuspended = false
+      neighbor.treatySuspendReason = undefined
+
+      if (currentStage === 'non_aggression') {
+        next.legitimacy = clamp(next.legitimacy - 8, 0, 100)
+        next.stability = clamp(next.stability - 3, 0, 100)
+        next.royalFavor = clamp(next.royalFavor - 2, 0, 100)
+        neighbor.relation = clamp(neighbor.relation - 30, -100, 100)
+        addLog(
+          next,
+          `[조약 일방 파기] ${target.name} 불가침 조약 파기`,
+          `외교적 신의를 깨고 ${target.name}과의 불가침 조약을 일방적으로 파기했습니다. 국제적 불신을 초래하여 정통성과 안정도가 실추되었습니다. (정통성 -8, 안정도 -3, 관계도 -30)`,
+          'danger',
+        )
+      } else if (currentStage === 'alliance') {
+        next.legitimacy = clamp(next.legitimacy - 14, 0, 100)
+        next.stability = clamp(next.stability - 5, 0, 100)
+        next.royalFavor = clamp(next.royalFavor - 4, 0, 100)
+        neighbor.relation = clamp(neighbor.relation - 45, -100, 100)
+        addLog(
+          next,
+          `[동맹 일방 파기] ${target.name} 군사 동맹 파기`,
+          `${target.name}과의 군사 동맹을 파기하고 국경을 봉쇄했습니다. 맹약을 저버린 대가로 정통성에 치명적인 손실을 입었습니다. (정통성 -14, 안정도 -5, 관계도 -45)`,
+          'danger',
+        )
+      } else if (currentStage === 'vassal') {
+        next.legitimacy = clamp(next.legitimacy - 12, 0, 100)
+        next.stability = clamp(next.stability - 4, 0, 100)
+        next.royalFavor = clamp(next.royalFavor - 3, 0, 100)
+        neighbor.relation = clamp(neighbor.relation - 40, -100, 100)
+        addLog(
+          next,
+          `[종주권 파기] ${target.name} 봉신 관계 단절`,
+          `${target.name}에 대한 종주권을 포기하고 봉신 조약을 해제했습니다. 토착 세력의 배신감으로 관계가 파탄 났습니다. (정통성 -12, 안정도 -4, 관계도 -40)`,
+          'danger',
+        )
+      }
+
+      return next
+    })
+  }
+
+  const annexSubjectPeacefully = (neighborId: string) => {
+    setState((previous) => {
+      const index = previous.neighbors.findIndex((n) => n.id === neighborId)
+      if (index < 0) return previous
+      const target = previous.neighbors[index]
+      if (
+        target.diplomaticStage !== 'vassal' ||
+        target.treatySuspended ||
+        target.annexed ||
+        target.id === 'crown' ||
+        previous.activeCampaign?.targetId === neighborId
+      )
+        return previous
+
+      const dur = target.treatyMonths ?? 0
+      const loy = target.subjectLoyalty ?? 0
+      if (
+        dur < 6 ||
+        loy < 80 ||
+        target.relation < 80 ||
+        previous.capacities.administration < 2 ||
+        previous.capacities.diplomacy < 2 ||
+        previous.resources.treasury < 120
+      )
+        return previous
+
+      const next = structuredClone(previous)
+      next.capacities.administration -= 2
+      next.capacities.diplomacy -= 2
+      next.resources.treasury -= 120
+
+      const neighbor = next.neighbors[index]
+      neighbor.annexed = true
+      neighbor.claim = false
+      neighbor.tradeActive = false
+      neighbor.tradeContract = null
+      neighbor.diplomaticStage = 'none'
+      neighbor.treatyMonths = 0
+      neighbor.subjectLoyalty = 0
+      neighbor.treatySuspended = false
+      neighbor.treatySuspendReason = undefined
+
+      next.population += target.strength * 95
+      next.manpower += target.strength * 8
+      next.autonomy = clamp(next.autonomy + 8, 0, 100)
+      next.stability = clamp(next.stability + 4, 0, 100)
+      next.legitimacy = clamp(next.legitimacy + 5, 0, 100)
+      next.royalFavor = clamp(next.royalFavor + 3, 0, 100)
+
+      next.governance[target.id] = {
+        neighborId: target.id,
+        governanceMode: 'local_autonomy',
+        loyalty: 80,
+        unrest: 10,
+        integration: 35,
+        isCore: false,
+        lastReport: `평화적 병합 협정에 따라 자치령으로 편입되었습니다. 현지 원로와 주민들의 높은 신뢰(초기 충성 80% · 불안 10%) 속에서 안정적으로 통치가 개시되었습니다.`,
+      }
+
+      addLog(
+        next,
+        `[평화적 병합] ${target.name} 자치 편입`,
+        `오랜 동맹과 봉신 관계를 통해 쌓은 두터운 신뢰를 바탕으로, ${target.name}이(가) 피 한 방울 흘리지 않고 에르덴 변경백령의 자치령으로 평화롭게 완전 합병되었습니다. 인구 ${target.strength * 95}명과 인력 ${target.strength * 8}명이 합류했습니다. (안정도 +4, 정통성 +5, 왕실 총애 +3 · 초기 충성 80% / 불안 10% / 통합 35%)`,
+        'royal',
+      )
+
+      return next
+    })
+  }
+
   const launchCampaign = (neighborId: string) => {
     setState((previous) => {
       if (previous.activeCampaign || previous.pendingWorldEvent) return previous
@@ -378,6 +636,7 @@ export function useRealmState() {
         target.id === 'crown' ||
         target.annexed ||
         !target.claim ||
+        (target.diplomaticStage && target.diplomaticStage !== 'none') ||
         armyPower < requiredPower ||
         previous.capacities.command < 2 ||
         previous.resources.treasury < 80 ||
@@ -503,7 +762,7 @@ export function useRealmState() {
       }
       const growth = previous.resources.grain > 40 ? 85 + previous.industries.farms.level * 8 : -45
       next.population = Math.max(1000, previous.population + growth)
-      next.manpower = Math.max(0, previous.manpower + Math.max(25, Math.round(growth * 0.4)))
+      next.manpower = Math.max(0, previous.manpower + Math.max(25, Math.round(growth * 0.4)) + monthlyProjection.diplomaticManpowerYield)
       if (previous.resources.grain <= 0) next.stability = clamp(next.stability - 5, 0, 100)
       if (next.month === 1) next.royalFavor = clamp(next.royalFavor + (previous.resources.treasury >= 100 ? 2 : -3), 0, 100)
 
@@ -529,6 +788,100 @@ export function useRealmState() {
         )
       }
 
+      if (monthlyProjection.suspendedDiplomacyCount > 0) {
+        const suspendedDiplomacy = monthlyProjection.diplomacyEvaluation.evaluations
+          .filter((e) => e.isSuspended)
+          .map((e) => `${e.neighborName} (${e.suspendReason})`)
+          .join(', ')
+        addLog(
+          next,
+          '외교 협약 일시 중단',
+          `국고 부족으로 다음 세력에 대한 협약 의무가 이번 달 중단되었습니다: ${suspendedDiplomacy}. (동맹 지원 중단 및 관계 악화)`,
+          'danger',
+        )
+      }
+
+      // Update per-neighbor diplomacy monthly progression
+      const vassalRevoltIds: string[] = []
+      for (const neighbor of next.neighbors) {
+        if (neighbor.annexed || neighbor.id === 'crown') continue
+        const stage = neighbor.diplomaticStage || 'none'
+        if (stage === 'none') continue
+
+        if (stage === 'non_aggression') {
+          neighbor.treatyMonths = (neighbor.treatyMonths || 0) + 1
+          if (neighbor.relation < 30) {
+            neighbor.relation = clamp(neighbor.relation + 2, -100, 100)
+          } else if (neighbor.relation < 50) {
+            neighbor.relation = clamp(neighbor.relation + 1, -100, 100)
+          }
+        } else if (stage === 'alliance') {
+          const evalItem = monthlyProjection.diplomacyEvaluation.evaluations.find((e) => e.neighborId === neighbor.id)
+          if (evalItem?.isSuspended) {
+            neighbor.treatySuspended = true
+            neighbor.treatySuspendReason = evalItem.suspendReason
+            neighbor.relation = clamp(neighbor.relation - 3, -100, 100)
+          } else {
+            neighbor.treatySuspended = false
+            neighbor.treatySuspendReason = undefined
+            neighbor.treatyMonths = (neighbor.treatyMonths || 0) + 1
+            neighbor.relation = clamp(neighbor.relation + 1, -100, 100)
+          }
+        } else if (stage === 'vassal') {
+          const evalItem = monthlyProjection.diplomacyEvaluation.evaluations.find((e) => e.neighborId === neighbor.id)
+          if (evalItem?.isSuspended) {
+            neighbor.treatySuspended = true
+            neighbor.treatySuspendReason = evalItem.suspendReason
+            neighbor.subjectLoyalty = clamp((neighbor.subjectLoyalty ?? 60) + (evalItem.deltaLoyalty ?? -5), 0, 100)
+            neighbor.relation = clamp(neighbor.relation + (evalItem.deltaRelation ?? -4), -100, 100)
+          } else {
+            neighbor.treatySuspended = false
+            neighbor.treatySuspendReason = undefined
+            const priorLoyalty = neighbor.subjectLoyalty ?? 60
+            neighbor.treatyMonths = (neighbor.treatyMonths || 0) + 1
+            neighbor.subjectLoyalty = clamp(priorLoyalty + (evalItem?.deltaLoyalty ?? 3), 0, 100)
+            neighbor.relation = clamp(neighbor.relation + (evalItem?.deltaRelation ?? 1), -100, 100)
+            if (neighbor.treatyMonths === 3 || neighbor.treatyMonths === 6 || (priorLoyalty < 80 && neighbor.subjectLoyalty >= 80)) {
+              addLog(
+                next,
+                `[봉신 관계 진전] ${neighbor.name}`,
+                `${neighbor.name}의 봉신 관계가 ${neighbor.treatyMonths}개월 유지되었습니다. 현재 충성도 ${neighbor.subjectLoyalty}%이며, 안정적인 보호와 교역으로 평화적 편입의 기반이 다져지고 있습니다.`,
+                'good',
+              )
+            }
+          }
+
+          if ((neighbor.subjectLoyalty ?? 0) <= 0) {
+            vassalRevoltIds.push(neighbor.id)
+          }
+        }
+      }
+
+      // Handle vassal revolts
+      for (const revoltId of vassalRevoltIds) {
+        const target = next.neighbors.find((n) => n.id === revoltId)
+        if (!target) continue
+        target.diplomaticStage = 'none'
+        target.subjectLoyalty = 0
+        target.treatyMonths = 0
+        target.treatySuspended = false
+        target.treatySuspendReason = undefined
+        target.tradeActive = false
+        target.tradeContract = null
+        target.claim = true
+        target.relation = clamp(target.relation - 40, -100, -20)
+        target.strength = Math.max(30, target.strength + 4)
+        next.stability = clamp(next.stability - 8, 0, 100)
+        next.legitimacy = clamp(next.legitimacy - 8, 0, 100)
+
+        addLog(
+          next,
+          `[봉신 이탈] ${target.name} 종주권 거부`,
+          `극심한 충성도 고갈로 인해 ${target.name}이(가) 에르덴에 대한 봉신 조약을 파기하고 독립을 선언했습니다! (안정도 -8, 정통성 -8, 영유권 명분 생성)`,
+          'danger',
+        )
+      }
+
       // CAMPAIGN RESOLUTION
       if (next.activeCampaign && next.activeCampaign.selectedOrder) {
         const campaign = next.activeCampaign
@@ -542,8 +895,13 @@ export function useRealmState() {
           next.resources.iron = Math.max(0, next.resources.iron - orderDef.costs.iron)
           next.resources.timber = Math.max(0, next.resources.timber - orderDef.costs.timber)
 
+          const activeAllies = next.neighbors.filter(
+            (n) => n.diplomaticStage === 'alliance' && !n.annexed && n.id !== campaign.targetId && !n.treatySuspended,
+          )
+          const alliedPower = activeAllies.reduce((sum, a) => sum + a.strength * 5, 0)
           const armyPower = calculateArmyPower(next.soldiers, next.levies, next.policies.includes('standing_guard'))
-          const powerRatio = Math.max(0.6, armyPower / Math.max(1, target.strength * 15))
+          const effectivePower = armyPower + alliedPower
+          const powerRatio = Math.max(0.6, effectivePower / Math.max(1, target.strength * 15))
           const seed = getDeterministicSeed(next.year, next.month, `${campaign.targetId}_${orderDef.id}`, next.soldiers)
           const variance = (seed % 7) - 3 // -3 ~ +3
 
@@ -553,18 +911,21 @@ export function useRealmState() {
           let lossS = 0
           let lossL = 0
 
+          const allyCount = activeAllies.length
+          const allyDamping = Math.max(0.7, 1 - allyCount * 0.15)
+
           if (orderDef.id === 'assault') {
-            deltaProgress = Math.min(45, Math.max(18, Math.round(27 + Math.min(10, (powerRatio - 1) * 8) + variance)))
-            deltaMorale = Math.max(12, Math.round(18 + Math.min(10, (powerRatio - 1) * 8) + variance))
+            deltaProgress = Math.min(45, Math.max(18, Math.round(27 + Math.min(10, (powerRatio - 1) * 8) + variance + allyCount * 2)))
+            deltaMorale = Math.max(12, Math.round(18 + Math.min(10, (powerRatio - 1) * 8) + variance + allyCount * 3))
             deltaSupply = Math.max(15, Math.round(22 - variance))
-            lossS = Math.max(4, Math.round(16 / powerRatio + Math.abs(variance)))
-            lossL = Math.max(10, Math.round(34 / powerRatio + Math.abs(variance) * 2))
+            lossS = Math.max(4, Math.round((16 / powerRatio + Math.abs(variance)) * allyDamping))
+            lossL = Math.max(10, Math.round((34 / powerRatio + Math.abs(variance) * 2) * allyDamping))
           } else if (orderDef.id === 'siege') {
-            deltaProgress = Math.min(45, Math.max(8, Math.round(15 + Math.min(8, (powerRatio - 1) * 6) + variance)))
-            deltaMorale = Math.max(20, Math.round(30 + Math.min(12, (powerRatio - 1) * 10) + variance))
+            deltaProgress = Math.min(45, Math.max(8, Math.round(15 + Math.min(8, (powerRatio - 1) * 6) + variance + allyCount * 2)))
+            deltaMorale = Math.max(20, Math.round(30 + Math.min(12, (powerRatio - 1) * 10) + variance + allyCount * 3))
             deltaSupply = Math.max(10, Math.round(16 - variance))
-            lossS = Math.max(2, Math.round(7 / powerRatio + Math.abs(variance)))
-            lossL = Math.max(4, Math.round(15 / powerRatio + Math.abs(variance)))
+            lossS = Math.max(2, Math.round((7 / powerRatio + Math.abs(variance)) * allyDamping))
+            lossL = Math.max(4, Math.round((15 / powerRatio + Math.abs(variance)) * allyDamping))
           } else {
             deltaProgress = Math.max(0, Math.min(6, Math.round(2 + variance)))
             deltaMorale = Math.max(0, Math.round(4 + variance))
@@ -600,7 +961,8 @@ export function useRealmState() {
             campaign.phase = '동원 및 진격'
           }
 
-          const report = `${campaign.campaignTurn - 1}개월차 ${orderDef.name} 수행: 진군도 +${deltaProgress}% (누적 ${campaign.progress}%), 적 사기 -${deltaMorale}% (잔여 ${campaign.enemyMorale}%), 보급 ${deltaSupply < 0 ? `+${-deltaSupply}%` : `-${deltaSupply}%`} (잔여 ${campaign.supply}%), 전사 상비군 ${actualLossS}명·징집병 ${actualLossL}명.`
+          const allyNote = allyCount > 0 ? ` [동맹군 ${activeAllies.map((a) => a.name).join(', ')} 참전 지원]` : ''
+          const report = `${campaign.campaignTurn - 1}개월차 ${orderDef.name} 수행: 진군도 +${deltaProgress}% (누적 ${campaign.progress}%), 적 사기 -${deltaMorale}% (잔여 ${campaign.enemyMorale}%), 보급 ${deltaSupply < 0 ? `+${-deltaSupply}%` : `-${deltaSupply}%`} (잔여 ${campaign.supply}%), 전사 상비군 ${actualLossS}명·징집병 ${actualLossL}명.${allyNote}`
           campaign.lastReport = report
           addLog(next, `[전황 보고] ${target.name} 전선`, report, orderDef.id === 'resupply' ? 'neutral' : 'danger')
 
@@ -609,6 +971,11 @@ export function useRealmState() {
             target.claim = false
             target.tradeActive = false
             target.tradeContract = null
+            target.diplomaticStage = 'none'
+            target.treatyMonths = 0
+            target.subjectLoyalty = 0
+            target.treatySuspended = false
+            target.treatySuspendReason = undefined
             next.population += target.strength * 95
             next.manpower += target.strength * 8
             next.autonomy = clamp(next.autonomy + 5, 0, 100)
@@ -720,6 +1087,11 @@ export function useRealmState() {
         delete next.governance[rebelId]
         rebelNeighbor.tradeActive = false
         rebelNeighbor.tradeContract = null
+        rebelNeighbor.diplomaticStage = 'none'
+        rebelNeighbor.treatyMonths = 0
+        rebelNeighbor.subjectLoyalty = 0
+        rebelNeighbor.treatySuspended = false
+        rebelNeighbor.treatySuspendReason = undefined
         rebelNeighbor.claim = true
         rebelNeighbor.relation = clamp(rebelNeighbor.relation - 50, -100, -30)
         rebelNeighbor.strength = Math.max(35, rebelNeighbor.strength + 8)
@@ -841,6 +1213,9 @@ export function useRealmState() {
     resolveWorldEvent,
     resetRealm,
     changeGovernanceMode,
+    signTreaty,
+    breakTreaty,
+    annexSubjectPeacefully,
   }
 }
 

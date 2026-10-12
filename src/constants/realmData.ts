@@ -1,6 +1,9 @@
 import type {
   AnnexedTerritoryGovernance,
   CampaignOrderId,
+  DiplomacySummary,
+  DiplomaticRouteEvaluation,
+  DiplomaticStage,
   Doctrine,
   DominionGovernanceSummary,
   GovernanceMode,
@@ -852,6 +855,492 @@ export function evaluateGovernedTerritories(
   }
 }
 
+export interface DiplomaticStageDefinition {
+  id: DiplomaticStage
+  name: string
+  icon: string
+  character: string
+  description: string
+  upfrontCostDesc: string
+  upkeepCostDesc: string
+  breakPenaltyDesc: string
+}
+
+export const DIPLOMATIC_STAGES: Record<DiplomaticStage, DiplomaticStageDefinition> = {
+  none: {
+    id: 'none',
+    name: '협약 미체결',
+    icon: '🌐',
+    character: '기본 외교 상태',
+    description: '공식적인 외교 조약이 체결되지 않은 상태입니다.',
+    upfrontCostDesc: '없음',
+    upkeepCostDesc: '없음',
+    breakPenaltyDesc: '없음',
+  },
+  non_aggression: {
+    id: 'non_aggression',
+    name: '불가침 조약',
+    icon: '🕊️',
+    character: '국경 평화 안정',
+    description: '상호 국경 침범을 금지하고 분쟁을 억제합니다. 매달 관계도가 점진적으로 안정화됩니다.',
+    upfrontCostDesc: '외교력 1 · 🪙25',
+    upkeepCostDesc: '유지비 없음 (월 관계도 +1~+2 안정화)',
+    breakPenaltyDesc: '파기 시 정통성 -8, 안정도 -3, 관계도 -30',
+  },
+  alliance: {
+    id: 'alliance',
+    name: '군사 동맹',
+    icon: '⚔️',
+    character: '원정 지원 & 군사 협력',
+    description: '상호 방위와 원정 전역 지원을 약조합니다. 원정 시 동맹군이 전선에 참전하여 전투력 지원 및 아군 사상자를 경감합니다.',
+    upfrontCostDesc: '외교력 2 · 🪙50',
+    upkeepCostDesc: '월 🪙12 (동맹군 원정 지원 및 관계도 지속 상승)',
+    breakPenaltyDesc: '파기 시 정통성 -14, 안정도 -5, 관계도 -45',
+  },
+  vassal: {
+    id: 'vassal',
+    name: '봉신국 (속국)',
+    icon: '👑',
+    character: '조공 상납 & 자치 종속',
+    description: '에르덴의 종주권을 인정하고 매달 지역 고유 특화 조공과 인력을 바칩니다. 장기적인 충성도 유지를 통해 평화적 병합이 가능합니다.',
+    upfrontCostDesc: '외교력 2 · 행정력 1 · 🪙90',
+    upkeepCostDesc: '월 🪙10 (종주국 보호비 / 지역 특화 조공 및 인력 획득)',
+    breakPenaltyDesc: '파기 시 정통성 -12, 안정도 -4, 관계도 -40',
+  },
+}
+
+export interface VassalProfile {
+  id: string
+  name: string
+  tributeYields: RealmResources
+  manpowerYield: number
+  characterDesc: string
+}
+
+export const VASSAL_PROFILES: Record<string, VassalProfile> = {
+  sylvana: {
+    id: 'sylvana',
+    name: '실바나 숲의회',
+    tributeYields: { treasury: 0, grain: 10, iron: 0, timber: 8 },
+    manpowerYield: 12,
+    characterDesc: '고대 정령목과 약초 곡물 상납, 수림 순찰대 파견',
+  },
+  ironridge: {
+    id: 'ironridge',
+    name: '철령 남작령',
+    tributeYields: { treasury: 6, grain: 0, iron: 8, timber: 0 },
+    manpowerYield: 15,
+    characterDesc: '북부 정련 철광석 및 산악 기사 종자 파견',
+  },
+  auric: {
+    id: 'auric',
+    name: '아우릭 자유시',
+    tributeYields: { treasury: 18, grain: 0, iron: 2, timber: 0 },
+    manpowerYield: 8,
+    characterDesc: '해상 관세 및 상단 금융 조세 분담금 납부',
+  },
+  goblin: {
+    id: 'goblin',
+    name: '붉은이빨 부족령',
+    tributeYields: { treasury: 0, grain: 14, iron: 4, timber: 0 },
+    manpowerYield: 18,
+    characterDesc: '황야 건조 육류와 노획 철물 공납, 부족 사냥꾼 병력 제공',
+  },
+}
+
+export interface RequirementCheck {
+  id: string
+  label: string
+  met: boolean
+  detail?: string
+}
+
+export function checkDiplomaticRequirements(
+  targetStage: DiplomaticStage | 'peaceful_annexation',
+  neighbor: NeighborRealm,
+  state: RealmState,
+  monthlyGrossIncome?: number,
+  armyPower?: number,
+): { canEnact: boolean; checks: RequirementCheck[]; blockers: string[] } {
+  const checks: RequirementCheck[] = []
+
+  if (targetStage === 'non_aggression') {
+    const isNone = (neighbor.diplomaticStage || 'none') === 'none'
+    checks.push({
+      id: 'prior_stage',
+      label: '선행 협약 상태: 협약 미체결',
+      met: isNone,
+      detail: isNone ? '충족' : `현재 ${DIPLOMATIC_STAGES[neighbor.diplomaticStage || 'none'].name} 체결 중`,
+    })
+
+    const noClaim = !neighbor.claim
+    checks.push({
+      id: 'no_claim',
+      label: '영유권 명분 없음 (평화 기조)',
+      met: noClaim,
+      detail: noClaim ? '충족' : '영유권 조작 명분 존재 (파기 필요)',
+    })
+
+    const relMet = neighbor.relation >= 10
+    checks.push({
+      id: 'relation',
+      label: '우호적 관계 (관계도 +10 이상)',
+      met: relMet,
+      detail: `현재 ${neighbor.relation >= 0 ? `+${neighbor.relation}` : neighbor.relation}`,
+    })
+
+    const dipMet = state.capacities.diplomacy >= 1
+    checks.push({
+      id: 'capacity_dip',
+      label: '가용 외교력 1 이상',
+      met: dipMet,
+      detail: `현재 ${state.capacities.diplomacy}`,
+    })
+
+    const goldMet = state.resources.treasury >= 25
+    checks.push({
+      id: 'treasury',
+      label: '국고 🪙25 이상',
+      met: goldMet,
+      detail: `현재 🪙${state.resources.treasury}`,
+    })
+  } else if (targetStage === 'alliance') {
+    const isPact = neighbor.diplomaticStage === 'non_aggression'
+    checks.push({
+      id: 'prior_stage',
+      label: '선행 협약: 불가침 조약 체결 중',
+      met: isPact,
+      detail: isPact ? '충족' : '불가침 조약 선행 필요',
+    })
+
+    const relMet = neighbor.relation >= 40
+    checks.push({
+      id: 'relation',
+      label: '높은 신뢰 (관계도 +40 이상)',
+      met: relMet,
+      detail: `현재 ${neighbor.relation >= 0 ? `+${neighbor.relation}` : neighbor.relation}`,
+    })
+
+    const tradeMet = neighbor.tradeActive && !neighbor.treatySuspended
+    checks.push({
+      id: 'trade',
+      label: '활성 교역로 개설 및 가동 중',
+      met: tradeMet,
+      detail: neighbor.tradeActive ? '가동 중' : '교역로 미개설',
+    })
+
+    const legMet = state.legitimacy >= 50
+    checks.push({
+      id: 'legitimacy',
+      label: '군주 정통성 50% 이상',
+      met: legMet,
+      detail: `현재 ${state.legitimacy}%`,
+    })
+
+    const noClaim = !neighbor.claim
+    checks.push({
+      id: 'no_claim',
+      label: '영유권 명분 없음',
+      met: noClaim,
+      detail: noClaim ? '충족' : '영유권 명분 존재',
+    })
+
+    const dipMet = state.capacities.diplomacy >= 2
+    checks.push({
+      id: 'capacity_dip',
+      label: '가용 외교력 2 이상',
+      met: dipMet,
+      detail: `현재 ${state.capacities.diplomacy}`,
+    })
+
+    const goldMet = state.resources.treasury >= 50
+    checks.push({
+      id: 'treasury',
+      label: '국고 🪙50 이상',
+      met: goldMet,
+      detail: `현재 🪙${state.resources.treasury}`,
+    })
+  } else if (targetStage === 'vassal') {
+    const isAlliance = neighbor.diplomaticStage === 'alliance'
+    checks.push({
+      id: 'prior_stage',
+      label: '선행 협약: 군사 동맹 체결 중',
+      met: isAlliance,
+      detail: isAlliance ? '충족' : '군사 동맹 선행 필요',
+    })
+
+    checks.push({
+      id: 'obligations_current',
+      label: '동맹 유지 의무 정상 이행',
+      met: !neighbor.treatySuspended,
+      detail: neighbor.treatySuspended ? neighbor.treatySuspendReason || '동맹 유지비 체납 중' : '충족',
+    })
+
+    const relMet = neighbor.relation >= 65
+    checks.push({
+      id: 'relation',
+      label: '매우 높은 신뢰 (관계도 +65 이상)',
+      met: relMet,
+      detail: `현재 ${neighbor.relation >= 0 ? `+${neighbor.relation}` : neighbor.relation}`,
+    })
+
+    const legMet = state.legitimacy >= 60
+    checks.push({
+      id: 'legitimacy',
+      label: '군주 정통성 60% 이상',
+      met: legMet,
+      detail: `현재 ${state.legitimacy}%`,
+    })
+
+    const reqMil = neighbor.strength * 18
+    const milMet = (armyPower ?? 0) >= reqMil
+    checks.push({
+      id: 'military',
+      label: `군사적 우위 (전투력 ${reqMil} 이상)`,
+      met: milMet,
+      detail: `현재 ${armyPower ?? 0} / 필요 ${reqMil}`,
+    })
+
+    const reqIncome = Math.round(neighbor.strength * 1.2)
+    const econMet = state.resources.treasury >= 120 && (monthlyGrossIncome ?? 0) >= reqIncome
+    checks.push({
+      id: 'economy',
+      label: `경제적 우위 (국고 🪙120 및 월 세입 🪙${reqIncome} 이상)`,
+      met: econMet,
+      detail: `국고 🪙${state.resources.treasury}, 월 세입 🪙${monthlyGrossIncome ?? 0}`,
+    })
+
+    const dipMet = state.capacities.diplomacy >= 2
+    checks.push({
+      id: 'capacity_dip',
+      label: '가용 외교력 2 이상',
+      met: dipMet,
+      detail: `현재 ${state.capacities.diplomacy}`,
+    })
+
+    const admMet = state.capacities.administration >= 1
+    checks.push({
+      id: 'capacity_adm',
+      label: '가용 행정력 1 이상',
+      met: admMet,
+      detail: `현재 ${state.capacities.administration}`,
+    })
+
+    const goldMet = state.resources.treasury >= 90
+    checks.push({
+      id: 'treasury',
+      label: '국고 🪙90 이상',
+      met: goldMet,
+      detail: `현재 🪙${state.resources.treasury}`,
+    })
+  } else if (targetStage === 'peaceful_annexation') {
+    const isVassal = neighbor.diplomaticStage === 'vassal'
+    checks.push({
+      id: 'prior_stage',
+      label: '선행 관계: 봉신국(속국) 복속 상태',
+      met: isVassal,
+      detail: isVassal ? '충족' : '봉신 복속 필요',
+    })
+
+    checks.push({
+      id: 'obligations_current',
+      label: '봉신 보호 의무 정상 이행',
+      met: !neighbor.treatySuspended,
+      detail: neighbor.treatySuspended ? neighbor.treatySuspendReason || '보호비 체납 중' : '충족',
+    })
+
+    const dur = neighbor.treatyMonths ?? 0
+    const durMet = dur >= 6
+    checks.push({
+      id: 'duration',
+      label: '봉신 유지 기간 6개월 이상',
+      met: durMet,
+      detail: `현재 ${dur}개월 경과 (최소 6개월)`,
+    })
+
+    const loy = neighbor.subjectLoyalty ?? 0
+    const loyMet = loy >= 80
+    checks.push({
+      id: 'loyalty',
+      label: '속국 충성도 80% 이상',
+      met: loyMet,
+      detail: `현재 ${loy}%`,
+    })
+
+    const relMet = neighbor.relation >= 80
+    checks.push({
+      id: 'relation',
+      label: '종주국 상호 신뢰 (관계도 +80 이상)',
+      met: relMet,
+      detail: `현재 ${neighbor.relation >= 0 ? `+${neighbor.relation}` : neighbor.relation}`,
+    })
+
+    const admMet = state.capacities.administration >= 2
+    checks.push({
+      id: 'capacity_adm',
+      label: '가용 행정력 2 이상',
+      met: admMet,
+      detail: `현재 ${state.capacities.administration}`,
+    })
+
+    const dipMet = state.capacities.diplomacy >= 2
+    checks.push({
+      id: 'capacity_dip',
+      label: '가용 외교력 2 이상',
+      met: dipMet,
+      detail: `현재 ${state.capacities.diplomacy}`,
+    })
+
+    const goldMet = state.resources.treasury >= 120
+    checks.push({
+      id: 'treasury',
+      label: '통합 편입 기금 🪙120 이상',
+      met: goldMet,
+      detail: `현재 🪙${state.resources.treasury}`,
+    })
+  }
+
+  const notWar = state.activeCampaign?.targetId !== neighbor.id
+  if (!notWar) {
+    checks.unshift({
+      id: 'not_war',
+      label: '교전 상태가 아닐 것',
+      met: false,
+      detail: '원정 진행 중',
+    })
+  }
+
+  const blockers = checks.filter((c) => !c.met).map((c) => c.label)
+  const canEnact = checks.every((c) => c.met)
+
+  return { canEnact, checks, blockers }
+}
+
+export function evaluateDiplomacy(
+  neighbors: NeighborRealm[],
+  resources: RealmResources,
+  activeCampaignTargetId?: string,
+): DiplomacySummary {
+  let workingTreasury = resources.treasury
+  const evaluations: DiplomaticRouteEvaluation[] = []
+  const totalCosts: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  const totalYields: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  const totalNet: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+  let totalManpowerYield = 0
+  let activeAllianceCount = 0
+  let activeVassalCount = 0
+  let suspendedCount = 0
+
+  for (const neighbor of neighbors) {
+    if (neighbor.annexed || neighbor.id === 'crown') continue
+    const stage = neighbor.diplomaticStage || 'none'
+    if (stage === 'none') continue
+
+    // If currently at war with this neighbor, treaties are broken or suspended
+    if (activeCampaignTargetId === neighbor.id) continue
+
+    let costs: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+    let yields: RealmResources = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+    let manpowerYield = 0
+    let deltaRelation = 0
+    let deltaLoyalty = 0
+    let isSuspended = false
+    let suspendReason: string | undefined
+
+    if (stage === 'non_aggression') {
+      costs = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+      yields = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+      deltaRelation = neighbor.relation < 30 ? 2 : neighbor.relation < 50 ? 1 : 0
+      deltaLoyalty = 0
+    } else if (stage === 'alliance') {
+      const upkeep = 12
+      if (workingTreasury >= upkeep) {
+        workingTreasury -= upkeep
+        costs = { treasury: upkeep, grain: 0, iron: 0, timber: 0 }
+        yields = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        deltaRelation = neighbor.relation < 85 ? 1 : 0
+        activeAllianceCount += 1
+      } else {
+        isSuspended = true
+        suspendedCount += 1
+        suspendReason = `동맹 유지비 부족 (필요 🪙${upkeep} / 가용 🪙${workingTreasury})`
+        costs = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        yields = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        deltaRelation = -3
+      }
+    } else if (stage === 'vassal') {
+      const upkeep = 10
+      const profile = VASSAL_PROFILES[neighbor.id]
+      if (workingTreasury >= upkeep) {
+        workingTreasury -= upkeep
+        costs = { treasury: upkeep, grain: 0, iron: 0, timber: 0 }
+        yields = profile ? { ...profile.tributeYields } : { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        manpowerYield = profile?.manpowerYield ?? 10
+        deltaRelation = 1
+        deltaLoyalty = neighbor.relation >= 80 ? 4 : 3
+        activeVassalCount += 1
+      } else {
+        isSuspended = true
+        suspendedCount += 1
+        suspendReason = `종주국 보호비 부족 (필요 🪙${upkeep} / 가용 🪙${workingTreasury})`
+        costs = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        yields = { treasury: 0, grain: 0, iron: 0, timber: 0 }
+        deltaRelation = -4
+        deltaLoyalty = -5
+      }
+    }
+
+    const net: RealmResources = {
+      treasury: yields.treasury - costs.treasury,
+      grain: yields.grain - costs.grain,
+      iron: yields.iron - costs.iron,
+      timber: yields.timber - costs.timber,
+    }
+
+    totalCosts.treasury += costs.treasury
+    totalCosts.grain += costs.grain
+    totalCosts.iron += costs.iron
+    totalCosts.timber += costs.timber
+
+    totalYields.treasury += yields.treasury
+    totalYields.grain += yields.grain
+    totalYields.iron += yields.iron
+    totalYields.timber += yields.timber
+
+    totalNet.treasury += net.treasury
+    totalNet.grain += net.grain
+    totalNet.iron += net.iron
+    totalNet.timber += net.timber
+
+    totalManpowerYield += manpowerYield
+
+    evaluations.push({
+      neighborId: neighbor.id,
+      neighborName: neighbor.name,
+      stage,
+      isSuspended,
+      suspendReason,
+      costs,
+      yields,
+      net,
+      manpowerYield,
+      deltaRelation,
+      deltaLoyalty,
+    })
+  }
+
+  return {
+    evaluations,
+    totalCosts,
+    totalYields,
+    totalNet,
+    totalManpowerYield,
+    activeAllianceCount,
+    activeVassalCount,
+    suspendedCount,
+  }
+}
+
 export const DOCTRINE_LABELS: Record<Doctrine, string> = {
   unset: '노선 미결정',
   stewardship: '질서의 길',
@@ -888,11 +1377,11 @@ export const INITIAL_REALM_STATE: RealmState = {
   autonomy: 24,
   royalFavor: 51,
   neighbors: [
-    { id: 'crown', name: '루미나스 왕령', title: '황금 왕관의 종주국', ruler: '여왕 아우렐리아 3세', icon: '👑', relation: 36, strength: 84, attitude: '종주국', specialty: '사치품 · 왕실 관료', tradeActive: false, tradeContract: null, claim: false, annexed: false },
-    { id: 'sylvana', name: '실바나 숲의회', title: '고대 수림의 연맹', ruler: '수호자 이실렌', icon: '🌲', relation: 18, strength: 39, attitude: '우호', specialty: '약초 · 정령목', tradeActive: false, tradeContract: null, claim: false, annexed: false },
-    { id: 'ironridge', name: '철령 남작령', title: '북부 관문의 경쟁자', ruler: '남작 볼프람', icon: '⛰️', relation: -14, strength: 48, attitude: '경계', specialty: '철광 · 중장갑', tradeActive: false, tradeContract: null, claim: false, annexed: false },
-    { id: 'auric', name: '아우릭 자유시', title: '상단이 다스리는 도시', ruler: '칠인 상무회', icon: '⚓', relation: 4, strength: 32, attitude: '중립', specialty: '해상무역 · 금융', tradeActive: false, tradeContract: null, claim: false, annexed: false },
-    { id: 'goblin', name: '붉은이빨 부족령', title: '동부 황야의 군벌', ruler: '대족장 우르가쉬', icon: '🔥', relation: -38, strength: 35, attitude: '적대', specialty: '약탈품 · 전투짐승', tradeActive: false, tradeContract: null, claim: false, annexed: false },
+    { id: 'crown', name: '루미나스 왕령', title: '황금 왕관의 종주국', ruler: '여왕 아우렐리아 3세', icon: '👑', relation: 36, strength: 84, attitude: '종주국', specialty: '사치품 · 왕실 관료', tradeActive: false, tradeContract: null, claim: false, annexed: false, diplomaticStage: 'none', treatyMonths: 0, subjectLoyalty: 0, treatySuspended: false },
+    { id: 'sylvana', name: '실바나 숲의회', title: '고대 수림의 연맹', ruler: '수호자 이실렌', icon: '🌲', relation: 18, strength: 39, attitude: '우호', specialty: '약초 · 정령목', tradeActive: false, tradeContract: null, claim: false, annexed: false, diplomaticStage: 'none', treatyMonths: 0, subjectLoyalty: 0, treatySuspended: false },
+    { id: 'ironridge', name: '철령 남작령', title: '북부 관문의 경쟁자', ruler: '남작 볼프람', icon: '⛰️', relation: -14, strength: 48, attitude: '경계', specialty: '철광 · 중장갑', tradeActive: false, tradeContract: null, claim: false, annexed: false, diplomaticStage: 'none', treatyMonths: 0, subjectLoyalty: 0, treatySuspended: false },
+    { id: 'auric', name: '아우릭 자유시', title: '상단이 다스리는 도시', ruler: '칠인 상무회', icon: '⚓', relation: 4, strength: 32, attitude: '중립', specialty: '해상무역 · 금융', tradeActive: false, tradeContract: null, claim: false, annexed: false, diplomaticStage: 'none', treatyMonths: 0, subjectLoyalty: 0, treatySuspended: false },
+    { id: 'goblin', name: '붉은이빨 부족령', title: '동부 황야의 군벌', ruler: '대족장 우르가쉬', icon: '🔥', relation: -38, strength: 35, attitude: '적대', specialty: '약탈품 · 전투짐승', tradeActive: false, tradeContract: null, claim: false, annexed: false, diplomaticStage: 'none', treatyMonths: 0, subjectLoyalty: 0, treatySuspended: false },
   ],
   governance: {},
   logs: [
