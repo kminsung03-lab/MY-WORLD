@@ -13,8 +13,13 @@ import {
   calculateNeighborEfficiency,
   checkDiplomaticRequirements,
 } from '../constants/realmData'
+import {
+  RIVAL_INTENT_TEMPLATES,
+  evaluateAmbitionGoals,
+} from '../constants/rivalAiData'
 import type { RealmHandle } from '../hooks/useRealmState'
 import type {
+  AmbitionVictoryId,
   DiplomaticStage,
   IndustryId,
   NeighborRealm,
@@ -22,7 +27,8 @@ import type {
   TradeContractId,
 } from '../types/realm'
 
-type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy' | 'dominion'
+
+type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy' | 'dominion' | 'rivals' | 'ambitions'
 
 const doctrineLabels = DOCTRINE_LABELS
 
@@ -106,6 +112,10 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     signTreaty,
     breakTreaty,
     annexSubjectPeacefully,
+    planCounterAction,
+    claimDirectiveReward,
+    chooseAmbition,
+    acknowledgeOutcome,
   } = realm
 
   const armyPower = useMemo(
@@ -113,6 +123,11 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     [state.soldiers, state.levies, state.policies],
   )
   const annexedCount = state.neighbors.filter((neighbor) => neighbor.annexed).length
+  const ambitionGoals = useMemo(() => evaluateAmbitionGoals(state), [state])
+  const activeIntentsCount = state.rivalIntents?.length ?? 0
+  const uncounteredIntentsCount = state.rivalIntents?.filter((i) => i.counterStatus !== 'countered').length ?? 0
+  const claimableDirectivesCount = state.directives?.filter((d) => d.isCompleted && !d.rewardClaimed).length ?? 0
+
   const projectedNet = {
     treasury: monthlyProjection.treasury - monthlyProjection.campaignCost.treasury,
     grain: monthlyProjection.grain - monthlyProjection.campaignCost.grain,
@@ -209,16 +224,23 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
 
       <nav className="realm-tabs">
         {([
-          ['overview', '영지 개요', '⌂'],
-          ['industry', '산업과 재정', '⚒'],
-          ['policy', '정책 의회', '♜'],
-          ['diplomacy', '외교와 군사', '⚔'],
-          ['dominion', `통치령 (${annexedCount})`, '🚩'],
-        ] as const).map(([id, label, icon]) => (
-          <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><span>{icon}</span>{label}</button>
+          ['overview', '영지 개요', '⌂', claimableDirectivesCount > 0 ? `지침 ${claimableDirectivesCount}` : null],
+          ['industry', '산업과 재정', '⚒', null],
+          ['policy', '정책 의회', '♜', null],
+          ['diplomacy', '외교와 군사', '⚔', null],
+          ['dominion', `통치령 (${annexedCount})`, '🚩', null],
+          ['rivals', '정세와 대응', '⚡', uncounteredIntentsCount > 0 ? `위협 ${uncounteredIntentsCount}` : (activeIntentsCount > 0 ? `${activeIntentsCount}` : null)],
+          ['ambitions', '가문 대망', '🏆', state.ambitionState?.triumphAchieved ? '대업완수' : null],
+        ] as const).map(([id, label, icon, badge]) => (
+          <button key={id} className={`realm-tab-btn ${tab === id ? 'active' : ''} ${badge && id === 'rivals' && uncounteredIntentsCount > 0 ? 'tab-alert' : ''}`} onClick={() => setTab(id)}>
+            <span>{icon}</span>
+            {label}
+            {badge && <span className="tab-badge">{badge}</span>}
+          </button>
         ))}
         <button className="realm-map-link" onClick={onOpenMap}><span>◇</span>대륙 지도</button>
       </nav>
+
 
       {tab === 'overview' && (
         <div className="realm-content realm-overview-grid">
@@ -268,8 +290,98 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
               </div>
             </article>
           )}
+          {state.rivalIntents && state.rivalIntents.length > 0 && (
+            <div className="realm-threat-alerts">
+              {state.rivalIntents.map((intent) => {
+                const neighbor = state.neighbors.find((n) => n.id === intent.neighborId)
+                const isCountered = intent.counterStatus === 'countered'
+                return (
+                  <div
+                    key={intent.id}
+                    className={`threat-alert-banner threat-${intent.threatLevel} ${isCountered ? 'is-countered' : ''}`}
+                  >
+                    <div className="threat-alert-icon">
+                      {isCountered ? '🛡️' : (intent.threatLevel === '기회' ? '✨' : '⚠️')}
+                    </div>
+                    <div className="threat-alert-content">
+                      <div className="threat-alert-tags">
+                        <span className="threat-tag-level">{intent.threatLevel}</span>
+                        <span className="threat-tag-sender">{neighbor?.name || intent.neighborId}</span>
+                        <span className="threat-tag-countdown">
+                          {intent.monthsRemaining <= 1 ? '이번 달 결산 시 발동' : `발동까지 ${intent.monthsRemaining}개월`}
+                        </span>
+                      </div>
+                      <h4>{intent.title}</h4>
+                      <p>{intent.summary}</p>
+                    </div>
+                    <div className="threat-alert-action">
+                      {isCountered ? (
+                        <span className="counter-settled-badge">✓ 선제 방비 조치 완료</span>
+                      ) : (
+                        <button className="btn-threat-respond" onClick={() => setTab('rivals')}>
+                          대응 지침 하달 <b>›</b>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {state.directives && (
+            <article className="realm-panel realm-directives-panel">
+              <div className="realm-panel-heading">
+                <div>
+                  <small>STRATEGIC DIRECTIVES</small>
+                  <h2>군주 집무 지침서</h2>
+                </div>
+                <span className="directives-step-badge">
+                  진행도 {state.directives.filter((d) => d.rewardClaimed).length} / {state.directives.length}
+                </span>
+              </div>
+              <p className="directives-intro">
+                변경백의 국정 기반을 튼튼히 다지고 대외 위협에 선제적으로 대처하기 위한 핵심 과업입니다.
+              </p>
+              <div className="directives-grid">
+                {state.directives.map((dir) => (
+                  <div
+                    key={dir.id}
+                    className={`directive-card ${dir.rewardClaimed ? 'is-claimed' : (dir.isCompleted ? 'is-ready' : 'is-pending')}`}
+                  >
+                    <div className="directive-card-header">
+                      <span className="directive-step">과업 {dir.step}</span>
+                      <h4>{dir.title}</h4>
+                      {dir.rewardClaimed ? (
+                        <span className="dir-status-tag claimed">✓ 완수</span>
+                      ) : dir.isCompleted ? (
+                        <span className="dir-status-tag ready">달성됨</span>
+                      ) : (
+                        <span className="dir-status-tag pending">진행 중</span>
+                      )}
+                    </div>
+                    <p className="directive-desc">{dir.description}</p>
+                    <div className="directive-meta">
+                      <span className="directive-target">🎯 목표: {dir.targetHint}</span>
+                      <span className="directive-reward">🎁 보상: {dir.rewardDesc}</span>
+                    </div>
+                    {!dir.rewardClaimed && (
+                      <button
+                        disabled={!dir.isCompleted}
+                        className={`btn-claim-directive ${dir.isCompleted ? 'active' : ''}`}
+                        onClick={() => claimDirectiveReward(dir.id)}
+                      >
+                        {dir.isCompleted ? '하사품 수령' : '과업 진행 중...'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </article>
+          )}
 
           <article className="realm-panel realm-domain-panel">
+
 
             <div className="realm-panel-heading"><div><small>DOMAIN</small><h2>변경백령 현황</h2></div><span className="realm-status-seal">왕실 봉신</span></div>
             <div className="realm-stat-grid">
@@ -1241,7 +1353,379 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
         </div>
       )}
 
+      {tab === 'rivals' && (
+        <div className="realm-content realm-rivals-view">
+          <div className="rivals-hero-banner">
+            <div>
+              <span className="rivals-kicker">STRATEGIC RIVALS & PROACTIVE COUNTERPLAY</span>
+              <h2>인접 세력 정세와 선제 대응</h2>
+              <p>
+                대륙의 인접 세력들은 각자의 국력과 성향에 따라 에르덴을 향한 위협과 책략을 획책합니다.
+                사전 첩보를 분석하고 역량과 자원을 투입해 <strong>선제 대응 지침</strong>을 하달하면 파국을 막거나
+                도리어 영지의 위세와 번영으로 전환할 수 있습니다.
+              </p>
+            </div>
+            <div className="rivals-summary-box">
+              <div><span>진행 중인 책략</span><strong>{activeIntentsCount}건</strong></div>
+              <div><span>미대응 위협</span><strong className={uncounteredIntentsCount > 0 ? 'color-danger' : 'color-good'}>{uncounteredIntentsCount}건</strong></div>
+            </div>
+          </div>
+
+          <div className="rivals-active-section">
+            <div className="section-title-row">
+              <h3>⚡ 국경 긴장 첩보 및 진행 중인 책략</h3>
+              <small>각 책략은 정해진 개월 뒤 다음 달 결산 시 최종 발동합니다.</small>
+            </div>
+
+            {(!state.rivalIntents || state.rivalIntents.length === 0) ? (
+              <div className="rivals-empty-notice">
+                <span className="empty-icon">🕊️</span>
+                <h4>현재 국경을 위협하는 긴급 책략이 없습니다</h4>
+                <p>
+                  인접 세력들이 각자의 내정에 집중하거나 평화 기조를 유지하고 있습니다.
+                  매달 결산 시 국경 첩보망을 통해 상대의 움직임이 사전에 포착됩니다.
+                </p>
+              </div>
+            ) : (
+              <div className="rival-intent-cards-grid">
+                {state.rivalIntents.map((intent) => {
+                  const neighbor = state.neighbors.find((n) => n.id === intent.neighborId)
+                  const template = RIVAL_INTENT_TEMPLATES[intent.type]
+                  const isCountered = intent.counterStatus === 'countered'
+                  const chosenAction = template?.counterActions.find((a) => a.id === intent.chosenCounterActionId)
+
+                  return (
+                    <article key={intent.id} className={`rival-intent-card threat-${intent.threatLevel} ${isCountered ? 'countered-card' : ''}`}>
+                      <div className="intent-card-header">
+                        <div className="intent-sender-info">
+                          <span className="sender-avatar">{neighbor?.icon || '🚩'}</span>
+                          <div>
+                            <h4>{neighbor?.name}</h4>
+                            <small>{neighbor?.title} · 군세 {neighbor?.strength ? neighbor.strength * 15 : 0} · 관계 {neighbor ? signed(neighbor.relation) : 0}</small>
+                          </div>
+                        </div>
+                        <div className="intent-badges">
+                          <span className={`threat-badge level-${intent.threatLevel}`}>위협: {intent.threatLevel}</span>
+                          <span className="countdown-badge">
+                            {intent.monthsRemaining <= 1 ? '⚠️ 이번 달 결산 시 발동!' : `발동까지 ${intent.monthsRemaining}개월 잔여`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="intent-body">
+                        <h3>{intent.title}</h3>
+                        <p className="intent-summary">{intent.summary}</p>
+                      </div>
+
+                      {isCountered && chosenAction ? (
+                        <div className="intent-countered-notice">
+                          <div className="countered-header">
+                            <span className="counter-icon">🛡️</span>
+                            <strong>선제 대응 지침 하달 완료: {chosenAction.name}</strong>
+                          </div>
+                          <p>{chosenAction.description}</p>
+                          <span className="counter-outcome">✓ 예상 결말: {chosenAction.outcomeHint}</span>
+                        </div>
+                      ) : (
+                        <div className="intent-counter-actions-block">
+                          <span className="counter-prompt">선제 대응 선택지 (아래 중 하나를 선택해 지침을 하달하십시오):</span>
+                          <div className="counter-options-grid">
+                            {template?.counterActions.map((action) => {
+                              const capCosts = action.costs.capacities || {}
+                              const resCosts = action.costs.resources || {}
+
+                              const canAffordCap =
+                                (!capCosts.administration || state.capacities.administration >= capCosts.administration) &&
+                                (!capCosts.diplomacy || state.capacities.diplomacy >= capCosts.diplomacy) &&
+                                (!capCosts.command || state.capacities.command >= capCosts.command)
+
+                              const canAffordRes =
+                                (!resCosts.treasury || state.resources.treasury >= resCosts.treasury) &&
+                                (!resCosts.grain || state.resources.grain >= resCosts.grain) &&
+                                (!resCosts.iron || state.resources.iron >= resCosts.iron) &&
+                                (!resCosts.timber || state.resources.timber >= resCosts.timber)
+
+                              const canAfford = canAffordCap && canAffordRes
+
+                              const costLabels: string[] = []
+                              if (capCosts.administration) costLabels.push(`🏛 행정력 ${capCosts.administration}`)
+                              if (capCosts.diplomacy) costLabels.push(`🤝 외교력 ${capCosts.diplomacy}`)
+                              if (capCosts.command) costLabels.push(`⚔ 지휘력 ${capCosts.command}`)
+                              if (resCosts.treasury) costLabels.push(`🪙 금화 ${resCosts.treasury}`)
+                              if (resCosts.grain) costLabels.push(`🌾 식량 ${resCosts.grain}`)
+                              if (resCosts.iron) costLabels.push(`⛓ 철 ${resCosts.iron}`)
+                              if (resCosts.timber) costLabels.push(`🪵 목재 ${resCosts.timber}`)
+
+                              return (
+                                <div key={action.id} className={`counter-action-card ${!canAfford ? 'unaffordable' : ''}`}>
+                                  <div className="action-card-top">
+                                    <h5>{action.name}</h5>
+                                    <span className="action-character">{action.character}</span>
+                                  </div>
+                                  <p className="action-desc">{action.description}</p>
+                                  <div className="action-cost-row">
+                                    <span className="cost-label">투입 역량/자원:</span>
+                                    <span className="cost-values">{costLabels.join(' · ') || '비용 없음'}</span>
+                                  </div>
+                                  <div className="action-hint-row">
+                                    <span className="hint-label">기대 결과:</span>
+                                    <span className="hint-text">{action.outcomeHint}</span>
+                                  </div>
+                                  <button
+                                    disabled={!canAfford}
+                                    className="btn-enact-counter"
+                                    onClick={() => planCounterAction(intent.id, action.id)}
+                                  >
+                                    {canAfford ? '이 지침 하달하기' : '역량 또는 자원 부족'}
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rivals-roster-section">
+            <div className="section-title-row">
+              <h3>🌐 대륙 세력별 전략 동향 및 국력</h3>
+              <small>국경을 맞댄 각 세력의 성향과 최근 첩보 기록입니다.</small>
+            </div>
+            <div className="rival-roster-grid">
+              {state.neighbors.map((neighbor) => {
+                const activeIntent = state.rivalIntents?.find((i) => i.neighborId === neighbor.id)
+                return (
+                  <div key={neighbor.id} className="rival-roster-card">
+                    <div className="roster-card-header">
+                      <span className="roster-avatar">{neighbor.icon}</span>
+                      <div>
+                        <h4>{neighbor.name}</h4>
+                        <small>{neighbor.title} · {neighbor.ruler}</small>
+                      </div>
+                      <span className={`roster-attitude-pill attitude-${neighbor.attitude}`}>{neighbor.attitude}</span>
+                    </div>
+                    <div className="roster-card-body">
+                      <div><span>특산 및 성향:</span><strong>{neighbor.specialty}</strong></div>
+                      <div><span>세력 군세:</span><strong>{neighbor.strength * 15} 전투력 ({neighbor.strength})</strong></div>
+                      <div><span>외교 관계:</span><strong>{signed(neighbor.relation)}</strong></div>
+                      <div><span>외교 단계:</span><strong>{DIPLOMATIC_STAGES[neighbor.diplomaticStage || 'none'].name}</strong></div>
+                      <div>
+                        <span>최근 동향:</span>
+                        <em>{neighbor.lastAction ? `${neighbor.lastAction} (${neighbor.lastActionDate || ''})` : '국경 경계 유지'}</em>
+                      </div>
+                    </div>
+                    {activeIntent && (
+                      <div className="roster-active-intent-badge">
+                        <span>⚡ {activeIntent.title} ({activeIntent.monthsRemaining}개월 잔여)</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'ambitions' && (
+        <div className="realm-content realm-ambitions-view">
+          <div className="ambitions-hero-banner">
+            <div>
+              <span className="ambitions-kicker">DYNASTY AMBITIONS & VICTORY CONDITIONS</span>
+              <h2>가문의 궁극적 대망과 승패 목표</h2>
+              <p>
+                에르덴 변경백령이 대륙의 역사에 영원히 각인될 위대한 목표를 선택하고 달성하십시오.
+                각 대망은 서로 다른 국가적 지향점을 상징하며, 조건을 모두 달성하면 대업을 완수하게 됩니다.
+                동시에 왕실의 분노나 영지 파산의 위기를 경계해야 합니다.
+              </p>
+            </div>
+            {state.ambitionState?.chosenAmbitionId && (
+              <div className="chosen-ambition-banner">
+                <span>현재 선포된 대망</span>
+                <strong>{ambitionGoals.find((g) => g.id === state.ambitionState?.chosenAmbitionId)?.name}</strong>
+              </div>
+            )}
+          </div>
+
+          <div className="ambitions-grid">
+            {ambitionGoals.map((goal) => {
+              const isSelected = state.ambitionState?.chosenAmbitionId === goal.id
+              const isAchieved = goal.isCompleted
+
+              return (
+                <article
+                  key={goal.id}
+                  className={`ambition-card ${isSelected ? 'is-selected' : ''} ${isAchieved ? 'is-achieved' : ''}`}
+                >
+                  <div className="ambition-card-header">
+                    <span className="ambition-icon">{goal.icon}</span>
+                    <div>
+                      <h3>{goal.name}</h3>
+                      <small>{goal.title}</small>
+                    </div>
+                    {isAchieved ? (
+                      <span className="ambition-triumph-ribbon">🏆 대업 달성!</span>
+                    ) : isSelected ? (
+                      <span className="ambition-chosen-tag">선포된 대망</span>
+                    ) : null}
+                  </div>
+
+                  <p className="ambition-desc">{goal.description}</p>
+
+                  <div className="ambition-requirements-list">
+                    <span className="req-header">필요 조건 달성 현황:</span>
+                    {goal.requirements.map((req, idx) => {
+                      const pct = Math.min(100, Math.round((req.current / req.target) * 100))
+                      return (
+                        <div key={idx} className="ambition-req-item">
+                          <div className="req-item-label-row">
+                            <span className={req.isMet ? 'req-met-text' : 'req-unmet-text'}>
+                              {req.isMet ? '✓' : '○'} {req.label}
+                            </span>
+                            <span className="req-values">
+                              {req.current.toLocaleString()} / {req.target.toLocaleString()} {req.unit} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="ambition-meter">
+                            <i
+                              style={{ width: `${pct}%` }}
+                              className={req.isMet ? 'meter-completed' : ''}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="ambition-card-footer">
+                    {!isSelected && (
+                      <button
+                        className="btn-select-ambition"
+                        onClick={() => chooseAmbition(goal.id as AmbitionVictoryId)}
+                      >
+                        이 대망을 가문의 목표로 선포
+                      </button>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+
+          <div className="crisis-monitors-panel">
+            <div className="section-title-row">
+              <h3>☠️ 군주정 위기 및 패배 주의보</h3>
+              <small>다음 수치가 0에 도달하면 가문이 몰락하고 정권이 붕괴합니다.</small>
+            </div>
+            <div className="crisis-monitors-grid">
+              <div className="crisis-card">
+                <div className="crisis-card-header">
+                  <span>👑 왕실 총애 위기 (군주 폐위 위험)</span>
+                  <strong className={state.royalFavor <= 15 ? 'color-danger' : ''}>{state.royalFavor}%</strong>
+                </div>
+                <div className="realm-meter purple">
+                  <i style={{ width: `${state.royalFavor}%` }} />
+                </div>
+                <p>
+                  왕실 총애가 0%에 도달하면 여왕이 근위 기사단을 파견해 에르덴을 왕실 직할령으로 강제 환수하고
+                  변경백을 폐위합니다.
+                </p>
+              </div>
+
+              <div className="crisis-card">
+                <div className="crisis-card-header">
+                  <span>🌾 재정·식량 고갈 위기 (영지 파산 위험)</span>
+                  <strong className={state.resources.treasury <= 30 && state.resources.grain <= 30 ? 'color-danger' : ''}>
+                    🪙{state.resources.treasury} · 🌾{state.resources.grain} · ⚜{state.stability}%
+                  </strong>
+                </div>
+                <div className="realm-meter">
+                  <i style={{ width: `${Math.min(100, (state.resources.treasury + state.resources.grain) / 5)}%` }} />
+                </div>
+                <p>
+                  국고와 식량이 모두 0이 되고 민심 안정도가 0%로 추락하면 대규모 농민 봉기와 군대 반란으로
+                  영지가 파산합니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VICTORY & DEFEAT MODAL */}
+      {state.ambitionState && (state.ambitionState.triumphAchieved || state.ambitionState.defeatTriggered) && !state.ambitionState.acknowledgedOutcome && (
+        <div className="realm-outcome-modal-backdrop">
+          <div className={`realm-outcome-modal ${state.ambitionState.triumphAchieved ? 'is-triumph' : 'is-tragedy'}`}>
+            {state.ambitionState.triumphAchieved ? (
+              <>
+                <div className="modal-triumph-badge">🏆 VICTORY TRIUMPH · 대륙의 전설</div>
+                <h2>위대한 대업을 완수했습니다!</h2>
+                <div className="modal-goal-highlight">
+                  <h3>{ambitionGoals.find((g) => g.id === state.ambitionState?.triumphAchieved)?.name}</h3>
+                  <p>{ambitionGoals.find((g) => g.id === state.ambitionState?.triumphAchieved)?.title}</p>
+                </div>
+                <p className="modal-narrative-text">
+                  수많은 위기와 라이벌 세력들의 책략을 이겨내고, 에르덴 변경백 아르덴은 대륙 서부의 확고부동한
+                  역사적 대업을 이룩했습니다. 시인들은 당신의 결단과 통치를 영원한 찬가로 노래할 것입니다!
+                </p>
+                <div className="modal-stats-summary">
+                  <div><span>달성 연도</span><strong>왕력 {state.year}년 {state.month}월</strong></div>
+                  <div><span>영지 총인구</span><strong>{state.population.toLocaleString()}명</strong></div>
+                  <div><span>상비 정예군</span><strong>{state.soldiers}명</strong></div>
+                  <div><span>비축 국고</span><strong>🪙 {state.resources.treasury}</strong></div>
+                </div>
+                <div className="modal-actions">
+                  <button className="btn-modal-continue" onClick={acknowledgeOutcome}>
+                    역사를 계속하여 영지를 번영시키기 (무한 샌드박스)
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="modal-tragedy-badge">☠️ REGIME COLLAPSE · 가문의 몰락</div>
+                <h2>변경백령이 역사 속으로 사라졌습니다</h2>
+                <div className="modal-goal-highlight tragedy">
+                  <h3>
+                    {state.ambitionState.defeatTriggered === 'crown_deposition'
+                      ? '왕실 근위대의 강제 접수 및 폐위'
+                      : '영지 재정 파산 및 무장 봉기'}
+                  </h3>
+                  <p>
+                    {state.ambitionState.defeatTriggered === 'crown_deposition'
+                      ? '왕실 총애 고갈로 종주국의 칙령에 의해 변경백 직위가 박탈되었습니다.'
+                      : '국고와 식량 기근으로 인한 전면 민중 봉기로 행정이 마비되었습니다.'}
+                  </p>
+                </div>
+                <p className="modal-narrative-text">
+                  거센 외교적 풍파와 내정의 한계를 넘지 못하고 에르덴 변경백령의 통치는 비극적인 결말을 맞았습니다.
+                </p>
+                <div className="modal-stats-summary">
+                  <div><span>몰락 연도</span><strong>왕력 {state.year}년 {state.month}월</strong></div>
+                  <div><span>최종 인구</span><strong>{state.population.toLocaleString()}명</strong></div>
+                  <div><span>최종 국고</span><strong>🪙 {state.resources.treasury}</strong></div>
+                  <div><span>안정도</span><strong>{state.stability}%</strong></div>
+                </div>
+                <div className="modal-actions">
+                  <button className="btn-modal-continue tragedy" onClick={acknowledgeOutcome}>
+                    마지막 기록을 보존하며 계속 플레이하기
+                  </button>
+                  <button className="btn-modal-restart" onClick={resetRealm}>
+                    처음부터 새 역사 시작하기
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </section>
   )
 }
+
 

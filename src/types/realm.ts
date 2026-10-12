@@ -205,6 +205,92 @@ export interface RealmLog {
   tone: 'good' | 'neutral' | 'danger' | 'royal'
 }
 
+export type RivalIntentType =
+  | 'crown_audit'
+  | 'crown_tithe'
+  | 'sylvana_nature_pact'
+  | 'sylvana_herbal_exchange'
+  | 'ironridge_border_fortify'
+  | 'ironridge_raid_threat'
+  | 'auric_tariff_war'
+  | 'auric_investment_offer'
+  | 'goblin_border_raid'
+  | 'goblin_tribute_demand'
+
+export type RivalThreatLevel = '기회' | '주의' | '경고' | '위기'
+
+export interface RivalCounterAction {
+  id: string
+  name: string
+  description: string
+  character: string
+  costs: {
+    capacities?: Partial<RealmCapacities>
+    resources?: Partial<RealmResources>
+  }
+  outcomeHint: string
+}
+
+export interface RivalIntent {
+  id: string
+  neighborId: string
+  type: RivalIntentType
+  title: string
+  summary: string
+  threatLevel: RivalThreatLevel
+  monthsRemaining: number
+  chosenCounterActionId?: string | null
+  counterStatus?: 'pending' | 'countered' | 'unprepared'
+}
+
+export type AmbitionVictoryId =
+  | 'military_hegemony'
+  | 'commercial_dominion'
+  | 'royal_grand_duke'
+  | 'grand_coalition'
+
+export type AmbitionDefeatId =
+  | 'crown_deposition'
+  | 'bankrupt_anarchy'
+  | 'conquest_collapse'
+
+export interface AmbitionRequirement {
+  label: string
+  current: number
+  target: number
+  unit: string
+  isMet: boolean
+}
+
+export interface AmbitionGoal {
+  id: AmbitionVictoryId
+  name: string
+  title: string
+  icon: string
+  doctrineBranch: Exclude<Doctrine, 'unset'> | 'all'
+  description: string
+  requirements: AmbitionRequirement[]
+  isCompleted: boolean
+}
+
+export interface DynastyAmbitionState {
+  chosenAmbitionId?: AmbitionVictoryId | null
+  triumphAchieved?: AmbitionVictoryId | null
+  defeatTriggered?: AmbitionDefeatId | null
+  acknowledgedOutcome?: boolean
+}
+
+export interface StrategicDirective {
+  id: string
+  step: number
+  title: string
+  description: string
+  targetHint: string
+  isCompleted: boolean
+  rewardClaimed: boolean
+  rewardDesc: string
+}
+
 export interface RealmState {
   year: number
   month: number
@@ -229,4 +315,8 @@ export interface RealmState {
   logs: RealmLog[]
   pendingWorldEvent?: WorldEvent | null
   activeCampaign?: ActiveCampaign | null
+  rivalIntents?: RivalIntent[]
+  ambitionState?: DynastyAmbitionState
+  directives?: StrategicDirective[]
 }
+

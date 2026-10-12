@@ -11,18 +11,28 @@ import {
   evaluateGovernedTerritories,
   evaluateTradeRoutes,
 } from '../constants/realmData'
+import {
+  INITIAL_DIRECTIVES,
+  RIVAL_INTENT_TEMPLATES,
+  evaluateAmbitionGoals,
+} from '../constants/rivalAiData'
 import { generateWorldEvent, getDeterministicSeed } from '../constants/worldEvents'
 import type {
+  AmbitionVictoryId,
   AnnexedTerritoryGovernance,
   CampaignOrderId,
   DiplomaticStage,
   Doctrine,
+  DynastyAmbitionState,
   GovernanceMode,
   IndustryId,
   PolicyId,
   RealmLog,
   RealmResources,
   RealmState,
+  RivalIntent,
+  RivalIntentType,
+  StrategicDirective,
   TradeContractId,
 } from '../types/realm'
 
@@ -103,6 +113,17 @@ export function useRealmState() {
           }
         }
 
+        const migratedRivalIntents: RivalIntent[] = Array.isArray(parsed.rivalIntents) ? parsed.rivalIntents : []
+        const migratedAmbitionState: DynastyAmbitionState = parsed.ambitionState || {
+          chosenAmbitionId: null,
+          triumphAchieved: null,
+          defeatTriggered: null,
+          acknowledgedOutcome: false,
+        }
+        const migratedDirectives: StrategicDirective[] = Array.isArray(parsed.directives) && parsed.directives.length > 0
+          ? parsed.directives
+          : JSON.parse(JSON.stringify(INITIAL_DIRECTIVES))
+
         return {
           ...initial,
           ...parsed,
@@ -110,6 +131,9 @@ export function useRealmState() {
           governance: migratedGovernance,
           pendingWorldEvent: parsed.pendingWorldEvent || null,
           activeCampaign: parsed.activeCampaign || null,
+          rivalIntents: migratedRivalIntents,
+          ambitionState: migratedAmbitionState,
+          directives: migratedDirectives,
         }
       }
     } catch (error) {
@@ -117,6 +141,7 @@ export function useRealmState() {
     }
     return cloneInitialState()
   })
+
 
 
   useEffect(() => {
@@ -1111,10 +1136,274 @@ export function useRealmState() {
         }
       }
 
+      // RIVAL AI INTENTS RESOLUTION & SPAWN
+      if (!next.rivalIntents) next.rivalIntents = []
+      const remainingIntents: RivalIntent[] = []
+
+      for (const intent of next.rivalIntents) {
+        intent.monthsRemaining -= 1
+        const neighbor = next.neighbors.find((n) => n.id === intent.neighborId)
+        const template = RIVAL_INTENT_TEMPLATES[intent.type]
+
+        if (!neighbor || neighbor.annexed || !template) {
+          continue
+        }
+
+        if (intent.monthsRemaining <= 0) {
+          if (intent.counterStatus === 'countered' && intent.chosenCounterActionId) {
+            const report = template.onExecuteCountered(neighbor, next, intent.chosenCounterActionId)
+            addLog(next, report.title, report.detail, 'good')
+            const dir5 = next.directives?.find((d) => d.id === 'dir_5_counter')
+            if (dir5) dir5.isCompleted = true
+          } else {
+            const report = template.onExecuteUnprepared(neighbor, next)
+            addLog(next, report.title, report.detail, 'danger')
+          }
+        } else {
+          remainingIntents.push(intent)
+        }
+      }
+
+      // Spawn new rival intent if under capacity (< 2 active intents)
+      if (remainingIntents.length < 2) {
+        const activeNeighborIds = new Set(remainingIntents.map((i) => i.neighborId))
+        const candidates = next.neighbors.filter(
+          (n) => !n.annexed && !activeNeighborIds.has(n.id),
+        )
+
+        const allTypes = Object.keys(RIVAL_INTENT_TEMPLATES) as RivalIntentType[]
+        const seed = getDeterministicSeed(next.year, next.month, 'rival_spawn', next.resources.treasury)
+        const possibleTemplates: RivalIntentType[] = []
+
+        for (const type of allTypes) {
+          const t = RIVAL_INTENT_TEMPLATES[type]
+          const neighbor = candidates.find((n) => n.id === t.neighborId)
+          if (neighbor && t.triggerCheck(neighbor, next)) {
+            possibleTemplates.push(type)
+          }
+        }
+
+        if (possibleTemplates.length > 0) {
+          const chosenType = possibleTemplates[seed % possibleTemplates.length]
+          const t = RIVAL_INTENT_TEMPLATES[chosenType]
+          const newIntent: RivalIntent = {
+            id: `intent_${next.year}_${next.month}_${t.neighborId}_${chosenType}`,
+            neighborId: t.neighborId,
+            type: chosenType,
+            title: t.title,
+            summary: t.summary,
+            threatLevel: t.threatLevel,
+            monthsRemaining: t.defaultMonthsRemaining,
+            chosenCounterActionId: null,
+            counterStatus: 'unprepared',
+          }
+          remainingIntents.push(newIntent)
+
+          const neighbor = next.neighbors.find((n) => n.id === t.neighborId)
+          if (neighbor) {
+            neighbor.lastAction = t.title
+            neighbor.lastActionDate = `${next.year}년 ${next.month}월`
+          }
+
+          addLog(
+            next,
+            `[정세 첩보] ${newIntent.title}`,
+            `${newIntent.summary} (실행까지 ${newIntent.monthsRemaining}개월 잔여 · 영지 화면 '정세 및 대응' 탭에서 사전 대응책을 수립할 수 있습니다.)`,
+            newIntent.threatLevel === '기회' ? 'royal' : 'danger',
+          )
+        }
+      }
+
+      next.rivalIntents = remainingIntents
+
+      // AMBITION & VICTORY / DEFEAT CHECKS
+      if (!next.ambitionState) {
+        next.ambitionState = {
+          chosenAmbitionId: null,
+          triumphAchieved: null,
+          defeatTriggered: null,
+          acknowledgedOutcome: false,
+        }
+      }
+
+      if (!next.ambitionState.triumphAchieved && !next.ambitionState.defeatTriggered) {
+        const ambitionGoals = evaluateAmbitionGoals(next)
+        const completedGoal = ambitionGoals.find((g) => g.isCompleted)
+        if (completedGoal) {
+          next.ambitionState.triumphAchieved = completedGoal.id
+          addLog(
+            next,
+            `🏆 [대업 완수] ${completedGoal.name}`,
+            `에르덴 변경백령이 위대한 역사의 한 획을 그었습니다! 목표 '${completedGoal.title}'을(를) 달성하여 대륙의 전설이 되었습니다.`,
+            'royal',
+          )
+        } else {
+          if (next.royalFavor <= 0) {
+            next.ambitionState.defeatTriggered = 'crown_deposition'
+            addLog(
+              next,
+              `☠️ [군주 폐위] 왕실 근위대의 강제 접수`,
+              `왕실 총애가 완전히 바닥나 여왕의 칙령으로 변경백 직위가 박탈되고 왕실 직할령으로 강제 환수되었습니다.`,
+              'danger',
+            )
+          } else if (next.resources.treasury <= 0 && next.resources.grain <= 0 && next.stability <= 0) {
+            next.ambitionState.defeatTriggered = 'bankrupt_anarchy'
+            addLog(
+              next,
+              `☠️ [영지 파산] 기근과 민중 봉기`,
+              `재정과 곡물이 고갈되고 민심이 붕괴하여 영지 전역에서 무장 봉기가 발생, 변경백령 행정이 완전히 마비되었습니다.`,
+              'danger',
+            )
+          }
+        }
+      }
+
+      // DIRECTIVES UPDATE
+      if (next.directives) {
+        for (const d of next.directives) {
+          if (d.isCompleted) continue
+          if (d.id === 'dir_1_farm' && next.industries.farms.level >= 2) {
+            d.isCompleted = true
+          } else if (d.id === 'dir_2_trade' && next.neighbors.some((n) => n.tradeActive && !n.annexed)) {
+            d.isCompleted = true
+          } else if (d.id === 'dir_3_muster' && next.soldiers >= 220) {
+            d.isCompleted = true
+          } else if (
+            d.id === 'dir_4_treaty' &&
+            next.neighbors.some((n) => !n.annexed && n.diplomaticStage && n.diplomaticStage !== 'none')
+          ) {
+            d.isCompleted = true
+          }
+        }
+      }
+
       return next
     })
   }
 
+  const planCounterAction = (intentId: string, actionId: string) => {
+    setState((previous) => {
+      const intents = previous.rivalIntents || []
+      const intentIndex = intents.findIndex((i) => i.id === intentId)
+      if (intentIndex < 0) return previous
+      const intent = intents[intentIndex]
+      const template = RIVAL_INTENT_TEMPLATES[intent.type]
+      if (!template) return previous
+      const action = template.counterActions.find((a) => a.id === actionId)
+      if (!action) return previous
+
+      const capCosts = action.costs.capacities || {}
+      const resCosts = action.costs.resources || {}
+
+      if (
+        (capCosts.administration && previous.capacities.administration < capCosts.administration) ||
+        (capCosts.diplomacy && previous.capacities.diplomacy < capCosts.diplomacy) ||
+        (capCosts.command && previous.capacities.command < capCosts.command) ||
+        (resCosts.treasury && previous.resources.treasury < resCosts.treasury) ||
+        (resCosts.grain && previous.resources.grain < resCosts.grain) ||
+        (resCosts.iron && previous.resources.iron < resCosts.iron) ||
+        (resCosts.timber && previous.resources.timber < resCosts.timber)
+      ) {
+        return previous
+      }
+
+      const next = structuredClone(previous)
+      if (capCosts.administration) next.capacities.administration -= capCosts.administration
+      if (capCosts.diplomacy) next.capacities.diplomacy -= capCosts.diplomacy
+      if (capCosts.command) next.capacities.command -= capCosts.command
+      if (resCosts.treasury) next.resources.treasury -= resCosts.treasury
+      if (resCosts.grain) next.resources.grain -= resCosts.grain
+      if (resCosts.iron) next.resources.iron -= resCosts.iron
+      if (resCosts.timber) next.resources.timber -= resCosts.timber
+
+      const nextIntent = next.rivalIntents![intentIndex]
+      nextIntent.chosenCounterActionId = actionId
+      nextIntent.counterStatus = 'countered'
+
+      addLog(
+        next,
+        `[선제 대응 하달] ${action.name}`,
+        `${intent.title}에 대비하여 지침을 하달했습니다. (${action.outcomeHint}) 잔여 ${intent.monthsRemaining}개월 후 실행 시 위협이 무력화되거나 반전됩니다.`,
+        'royal',
+      )
+
+      return next
+    })
+  }
+
+  const claimDirectiveReward = (directiveId: string) => {
+    setState((previous) => {
+      const list = previous.directives || []
+      const dirIndex = list.findIndex((d) => d.id === directiveId)
+      if (dirIndex < 0) return previous
+      const dir = list[dirIndex]
+      if (!dir.isCompleted || dir.rewardClaimed) return previous
+
+      const next = structuredClone(previous)
+      const targetDir = next.directives![dirIndex]
+      targetDir.rewardClaimed = true
+
+      if (directiveId === 'dir_1_farm') {
+        next.resources.treasury += 35
+        next.resources.grain += 25
+      } else if (directiveId === 'dir_2_trade') {
+        next.resources.treasury += 45
+        next.capacities.diplomacy += 1
+      } else if (directiveId === 'dir_3_muster') {
+        next.resources.iron += 20
+        next.stability = clamp(next.stability + 3, 0, 100)
+      } else if (directiveId === 'dir_4_treaty') {
+        next.legitimacy = clamp(next.legitimacy + 5, 0, 100)
+        next.royalFavor = clamp(next.royalFavor + 4, 0, 100)
+        next.resources.treasury += 50
+      } else if (directiveId === 'dir_5_counter') {
+        next.stability = clamp(next.stability + 6, 0, 100)
+        next.resources.treasury += 60
+      }
+
+      addLog(
+        next,
+        `[집무 지침 완수] ${dir.title}`,
+        `군주 집무 지침을 달성하고 하사품을 수령했습니다. (${dir.rewardDesc})`,
+        'good',
+      )
+
+      return next
+    })
+  }
+
+  const chooseAmbition = (ambitionId: AmbitionVictoryId) => {
+    setState((previous) => {
+      const next = structuredClone(previous)
+      if (!next.ambitionState) {
+        next.ambitionState = {
+          chosenAmbitionId: null,
+          triumphAchieved: null,
+          defeatTriggered: null,
+          acknowledgedOutcome: false,
+        }
+      }
+      next.ambitionState.chosenAmbitionId = ambitionId
+      const ambitionDef = evaluateAmbitionGoals(next).find((g) => g.id === ambitionId)
+      addLog(
+        next,
+        `[가문의 대망 선포] ${ambitionDef?.name || ambitionId}`,
+        `에르덴 변경백령의 장기 국가적 대망으로 '${ambitionDef?.title || ambitionId}'을(를) 선언했습니다.`,
+        'royal',
+      )
+      return next
+    })
+  }
+
+  const acknowledgeOutcome = () => {
+    setState((previous) => {
+      const next = structuredClone(previous)
+      if (next.ambitionState) {
+        next.ambitionState.acknowledgedOutcome = true
+      }
+      return next
+    })
+  }
 
   const resolveWorldEvent = (choiceId: string) => {
     setState((previous) => {
@@ -1216,7 +1505,12 @@ export function useRealmState() {
     signTreaty,
     breakTreaty,
     annexSubjectPeacefully,
+    planCounterAction,
+    claimDirectiveReward,
+    chooseAmbition,
+    acknowledgeOutcome,
   }
+
 }
 
 export type RealmHandle = ReturnType<typeof useRealmState>

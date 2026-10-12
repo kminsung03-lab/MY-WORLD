@@ -744,7 +744,17 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                       <strong className="stat-val text-emerald">🚩 {annexedCount}곳 병합</strong>
                     </div>
                   </div>
+
+                  {realmState.rivalIntents && realmState.rivalIntents.length > 0 && (
+                    <div className="strategy-stat-full highlight-rival-threat">
+                      <span className="stat-label">국경 긴장 첩보</span>
+                      <strong className="stat-val text-amber">
+                        ⚡ {realmState.rivalIntents.map((i) => `${i.title} (${i.monthsRemaining}개월)`).join(', ')}
+                      </strong>
+                    </div>
+                  )}
                 </div>
+
 
                 <div className="player-local-summary">
                   <span>마을 개척: 영토 {gameState.territory.secured}부지 · 방벽 Lv.{gameState.buildings.wall?.level || 0}</span>
@@ -1036,8 +1046,30 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
                         {matchedNeighbor.annexed ? '🚩 통치령에 병합됨 (점령 완료)' : '🛡️ 독립 세력'}
                       </span>
                     </div>
+
+                    {(() => {
+                      const activeIntent = realmState.rivalIntents?.find((i) => i.neighborId === matchedNeighbor.id)
+                      if (!activeIntent) return null
+                      const isCountered = activeIntent.counterStatus === 'countered'
+                      return (
+                        <div className={`neighbor-rival-intent-box threat-${activeIntent.threatLevel} ${isCountered ? 'is-countered' : ''}`}>
+                          <div className="intent-box-header">
+                            <span>{isCountered ? '🛡️' : '⚡'} 전략 첩보: {activeIntent.title}</span>
+                            <span className="threat-tag">{activeIntent.threatLevel}</span>
+                          </div>
+                          <p className="intent-box-summary">{activeIntent.summary}</p>
+                          <div className="intent-box-status">
+                            <span>잔여 기한: <strong>{activeIntent.monthsRemaining}개월</strong></span>
+                            <span className={isCountered ? 'text-good' : 'text-danger font-bold'}>
+                              {isCountered ? '✓ 선제 방비 조치 완료' : '⚠️ 미대응 (영지 화면에서 대응 지침 하달 필요)'}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
+
               ) : (
                 <div className="strategic-neighbor-remote">
                   <div className="remote-status-title">🌐 현재 직접 이해관계 없음</div>
