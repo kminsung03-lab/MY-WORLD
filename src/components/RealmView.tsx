@@ -17,6 +17,11 @@ import {
   RIVAL_INTENT_TEMPLATES,
   evaluateAmbitionGoals,
 } from '../constants/rivalAiData'
+import {
+  CIVIC_FOCUS_DEFINITIONS,
+  INITIAL_CIVIC_BUILDINGS,
+} from '../constants/fieldQuestData'
+import type { CivicBuildingId, CivicFocusId } from '../types/fieldQuest'
 import type { RealmHandle } from '../hooks/useRealmState'
 import type {
   AmbitionVictoryId,
@@ -26,6 +31,7 @@ import type {
   PolicyId,
   TradeContractId,
 } from '../types/realm'
+
 
 
 type RealmTab = 'overview' | 'industry' | 'policy' | 'diplomacy' | 'dominion' | 'rivals' | 'ambitions'
@@ -88,10 +94,10 @@ function getContractPreview(neighbor: NeighborRealm, contractId: TradeContractId
 export interface RealmViewProps {
   realm: RealmHandle
   onOpenMap: () => void
-  onOpenLocal: () => void
+  onOpenLocal?: () => void
 }
 
-export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
+export function RealmView({ realm, onOpenMap, onOpenLocal: _onOpenLocal }: RealmViewProps) {
   const [tab, setTab] = useState<RealmTab>('overview')
   const {
     state,
@@ -116,6 +122,10 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     claimDirectiveReward,
     chooseAmbition,
     acknowledgeOutcome,
+    setCivicFocus,
+    upgradeCivicBuilding,
+    resolveFieldQuestChoice,
+    skipFieldQuest,
   } = realm
 
   const armyPower = useMemo(
@@ -133,6 +143,22 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
     grain: monthlyProjection.grain - monthlyProjection.campaignCost.grain,
     iron: monthlyProjection.iron - monthlyProjection.campaignCost.iron,
     timber: monthlyProjection.timber - monthlyProjection.campaignCost.timber,
+  }
+
+  const canUpgradeCivic = (id: CivicBuildingId) => {
+    const buildings = state.civicBuildings || INITIAL_CIVIC_BUILDINGS
+    const b = buildings[id]
+    if (!b || b.level >= b.maxLevel) return false
+    if (state.capacities.administration < 1) return false
+    const discount = monthlyProjection.constructionDiscount || 0
+    const goldCost = Math.round((b.baseCost.treasury + b.level * 35) * (1 - discount))
+    const timberCost = Math.round((b.baseCost.timber + b.level * 15) * (1 - discount))
+    const ironCost = Math.round((b.baseCost.iron + b.level * 10) * (1 - discount))
+    return (
+      state.resources.treasury >= goldCost &&
+      state.resources.timber >= timberCost &&
+      state.resources.iron >= ironCost
+    )
   }
 
   const canUpgrade = (id: IndustryId) => {
@@ -225,7 +251,7 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
       <nav className="realm-tabs">
         {([
           ['overview', '영지 개요', '⌂', claimableDirectivesCount > 0 ? `지침 ${claimableDirectivesCount}` : null],
-          ['industry', '산업과 재정', '⚒', null],
+          ['industry', '시정과 산업', '🏛', null],
           ['policy', '정책 의회', '♜', null],
           ['diplomacy', '외교와 군사', '⚔', null],
           ['dominion', `통치령 (${annexedCount})`, '🚩', null],
@@ -244,6 +270,117 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
 
       {tab === 'overview' && (
         <div className="realm-content realm-overview-grid">
+          {state.realmTraits && state.realmTraits.length > 0 && (
+            <div className="realm-traits-banner">
+              <span className="traits-label">✨ 영지 활성 특성:</span>
+              <div className="traits-chips">
+                {state.realmTraits.map((t) => (
+                  <div key={t.id} className="trait-chip" title={t.description}>
+                    <span className="trait-icon">{t.icon}</span>
+                    <strong>{t.name}</strong>
+                    {t.durationMonths !== undefined && <small>({t.durationMonths}개월 잔여)</small>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {state.pendingFieldQuest && (
+            <article className="realm-panel field-quest-panel">
+              <div className="field-quest-header">
+                <div className="field-quest-meta">
+                  <span className="field-quest-kicker">📜 FIELD EXPEDITION · 영주 순행 및 현장 시찰 보고</span>
+                  <span className={`field-quest-category-badge ${state.pendingFieldQuest.isJackpotOpportunity ? 'jackpot-badge' : ''}`}>
+                    {state.pendingFieldQuest.isJackpotOpportunity ? '✨ 희귀 대박 기회' : state.pendingFieldQuest.category} · {state.pendingFieldQuest.location}
+                  </span>
+                </div>
+                <button
+                  className="btn-skip-quest"
+                  onClick={skipFieldQuest}
+                  title="건너뛰어도 영지 성장과 승리 목표에 어떠한 페널티도 발생하지 않습니다."
+                >
+                  🕊️ 현지 관리관에게 자율 위임 (건너뛰기)
+                </button>
+              </div>
+
+              <div className="field-quest-body">
+                <h2>{state.pendingFieldQuest.title}</h2>
+                <p className="field-quest-summary">{state.pendingFieldQuest.summary}</p>
+
+                {(() => {
+                  const quest = state.pendingFieldQuest
+                  const currentStep = quest.steps[quest.currentStepId]
+                  if (!currentStep) return null
+                  return (
+                    <div className="field-quest-step-box">
+                      <h3 className="step-title">{currentStep.title}</h3>
+                      <p className="step-narrative">{currentStep.narrative}</p>
+
+                      <div className="field-quest-choices-grid">
+                        {currentStep.choices.map((choice) => {
+                          const canAfford =
+                            (!choice.costs?.treasury || state.resources.treasury >= choice.costs.treasury) &&
+                            (!choice.costs?.grain || state.resources.grain >= choice.costs.grain) &&
+                            (!choice.costs?.iron || state.resources.iron >= choice.costs.iron) &&
+                            (!choice.costs?.timber || state.resources.timber >= choice.costs.timber) &&
+                            (!choice.costsCapacities?.administration || state.capacities.administration >= choice.costsCapacities.administration) &&
+                            (!choice.costsCapacities?.diplomacy || state.capacities.diplomacy >= choice.costsCapacities.diplomacy) &&
+                            (!choice.costsCapacities?.command || state.capacities.command >= choice.costsCapacities.command)
+
+                          const costParts: string[] = []
+                          if (choice.costs?.treasury) costParts.push(`🪙${choice.costs.treasury}`)
+                          if (choice.costs?.grain) costParts.push(`🌾${choice.costs.grain}`)
+                          if (choice.costs?.iron) costParts.push(`⛓${choice.costs.iron}`)
+                          if (choice.costs?.timber) costParts.push(`🪵${choice.costs.timber}`)
+                          if (choice.costsCapacities?.administration) costParts.push(`🏛행정${choice.costsCapacities.administration}`)
+                          if (choice.costsCapacities?.diplomacy) costParts.push(`🤝외교${choice.costsCapacities.diplomacy}`)
+                          if (choice.costsCapacities?.command) costParts.push(`⚔지휘${choice.costsCapacities.command}`)
+
+                          return (
+                            <div key={choice.id} className={`quest-choice-card ${choice.riskDisclosure ? 'risk-card' : ''}`}>
+                              <div className="choice-title-row">
+                                <h4>{choice.label}</h4>
+                                {costParts.length > 0 && (
+                                  <span className="choice-cost-badge">소모: {costParts.join(' ')}</span>
+                                )}
+                              </div>
+                              <p className="choice-desc">{choice.description}</p>
+
+                              {choice.riskDisclosure && (
+                                <div className="risk-disclosure-box">
+                                  <div className="risk-rates-header">
+                                    <span className="success-rate-pill">성공 확률 {choice.riskDisclosure.successRate}%</span>
+                                    <span className="fail-rate-pill">낙반/실패 확률 {100 - choice.riskDisclosure.successRate}%</span>
+                                  </div>
+                                  <div className="risk-detail-row success">
+                                    <strong>{choice.riskDisclosure.successTitle}</strong>
+                                    <p>{choice.riskDisclosure.successPreview}</p>
+                                  </div>
+                                  <div className="risk-detail-row failure">
+                                    <strong>{choice.riskDisclosure.failureTitle}</strong>
+                                    <p>{choice.riskDisclosure.failurePreview}</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              <button
+                                className={`btn-choose-quest-action ${choice.riskDisclosure ? 'btn-risk' : ''}`}
+                                disabled={!canAfford}
+                                onClick={() => resolveFieldQuestChoice(choice.id)}
+                              >
+                                {!canAfford ? '자원/역량 부족' : '이 방침으로 결단 집행'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </article>
+          )}
+
           {state.pendingWorldEvent && (
             <article className="realm-panel world-response-panel">
               <div className="world-response-header">
@@ -482,10 +619,16 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
               </div>
             </dl>
             <div className="realm-quick-actions">
-              <button onClick={() => setTab('industry')}>산업 투자</button>
-              <button onClick={() => setTab('diplomacy')}>외교 행동</button>
+              <button onClick={() => setTab('industry')}>시정과 산업</button>
+              <button onClick={() => setTab('diplomacy')}>외교와 군사</button>
               <button onClick={() => setTab('dominion')}>통치령 행정</button>
-              <button onClick={onOpenLocal}>현장 활동</button>
+              {state.pendingFieldQuest ? (
+                <button className="quick-btn-quest" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                  📜 현장 순행 (대기 중)
+                </button>
+              ) : (
+                <button onClick={() => setTab('rivals')}>정세와 대응</button>
+              )}
             </div>
           </article>
 
@@ -504,21 +647,132 @@ export function RealmView({ realm, onOpenMap, onOpenLocal }: RealmViewProps) {
 
       {tab === 'industry' && (
         <div className="realm-content">
-          <div className="realm-section-intro"><div><small>ECONOMY</small><h2>지역의 지형을 산업으로 바꾸십시오</h2><p>모든 산업은 보편적으로 성장할 수 있지만, 에르덴의 강변·구릉·교역로·삼림은 각기 다른 특화를 제공합니다.</p></div><span>투자에는 행정력 1이 필요합니다</span></div>
-          <div className="industry-grid">
-            {INDUSTRIES.map((industry) => {
-              const level = state.industries[industry.id].level
-              const goldCost = industry.baseCost + level * 45
-              const timberCost = industry.timberCost + level * 6
-              return (
-                <article className="industry-card" key={industry.id}>
-                  <div className="industry-art"><span>{industry.icon}</span><small>{industry.terrain}</small></div>
-                  <div className="industry-body"><div className="industry-level">산업 등급 {level} / 5</div><h3>{industry.name}</h3><p>{industry.description}</p><b>{industry.output}</b></div>
-                  <div className="industry-upgrade"><span>확장 비용: 🪙 {goldCost} · 🪵 {timberCost}</span><button disabled={!canUpgrade(industry.id)} onClick={() => upgradeIndustry(industry.id)}>{level >= 5 ? '최고 등급' : '산업 확장'}</button></div>
-                </article>
-              )
-            })}
+          <div className="realm-section-intro">
+            <div>
+              <small>ECONOMY & CIVIC ADMINISTRATION</small>
+              <h2>월간 시정 명령과 영지 산업·인프라</h2>
+              <p>매달 군주로서 집중할 시정 방향을 정하고, 4대 기간 산업과 성채·곡창 등 도시 기반 시설을 확장하십시오.</p>
+            </div>
+            <span>현재 시정: {monthlyProjection.civicFocusDef?.name || '균형 시정'}</span>
           </div>
+
+          {/* Section 1: Monthly Civic Focus Directives */}
+          <section className="civic-focus-section">
+            <div className="section-subtitle">
+              <h3>🏛️ 월간 시정 명령 (군주 직할 집중 지시)</h3>
+              <small>매달 결산에 직접 반영되며 언제든지 원하는 시정으로 즉시 전환할 수 있습니다.</small>
+            </div>
+            <div className="civic-focus-grid">
+              {(Object.keys(CIVIC_FOCUS_DEFINITIONS) as CivicFocusId[]).map((fId) => {
+                const fDef = CIVIC_FOCUS_DEFINITIONS[fId]
+                const isSelected = (state.civicFocus || 'balanced') === fId
+                return (
+                  <div
+                    key={fId}
+                    className={`civic-focus-card ${isSelected ? 'active-focus' : ''}`}
+                    onClick={() => setCivicFocus(fId)}
+                  >
+                    <div className="focus-header">
+                      <span className="focus-icon">{fDef.icon}</span>
+                      <h4>{fDef.name}</h4>
+                      {isSelected && <span className="focus-badge">집행 중</span>}
+                    </div>
+                    <p className="focus-desc">{fDef.shortDesc}</p>
+                    <div className="focus-effects">
+                      <span className="focus-benefit">효과: {fDef.effectDesc}</span>
+                      {fDef.costsDesc !== '없음' && <span className="focus-cost">소모: {fDef.costsDesc}</span>}
+                    </div>
+                    <button
+                      className={`btn-select-focus ${isSelected ? 'selected' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCivicFocus(fId)
+                      }}
+                    >
+                      {isSelected ? '현재 적용 중' : '이 시정으로 전환'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* Section 2: 4 Core Industries */}
+          <section className="core-industry-section">
+            <div className="section-subtitle">
+              <h3>⚒️ 4대 기간 생산 산업</h3>
+              <small>산업 등급 확장 시 영구적인 월간 기초 생산량 및 조세 수입이 증가합니다. (행정력 1 소모)</small>
+            </div>
+            <div className="industry-grid">
+              {INDUSTRIES.map((industry) => {
+                const level = state.industries[industry.id].level
+                const discount = monthlyProjection.constructionDiscount || 0
+                const rawGold = industry.baseCost + level * 45
+                const rawTimber = industry.timberCost + level * 6
+                const goldCost = Math.round(rawGold * (1 - discount))
+                const timberCost = Math.round(rawTimber * (1 - discount))
+                return (
+                  <article className="industry-card" key={industry.id}>
+                    <div className="industry-art"><span>{industry.icon}</span><small>{industry.terrain}</small></div>
+                    <div className="industry-body"><div className="industry-level">산업 등급 {level} / 5</div><h3>{industry.name}</h3><p>{industry.description}</p><b>{industry.output}</b></div>
+                    <div className="industry-upgrade">
+                      <span>확장 비용: 🪙 {goldCost} · 🪵 {timberCost} {discount > 0 ? `(${Math.round(discount * 100)}% 할인)` : ''}</span>
+                      <button disabled={!canUpgrade(industry.id)} onClick={() => upgradeIndustry(industry.id)}>
+                        {level >= 5 ? '최고 등급' : '산업 확장'}
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* Section 3: Civic Buildings & Urban Infrastructure */}
+          <section className="civic-buildings-section">
+            <div className="section-subtitle">
+              <h3>🏗️ 도시 기반 시설 (성채·거주구·곡창·성벽)</h3>
+              <small>본령 직할 인프라로 영지의 행정력, 식량 보존, 인구 성장, 방어력을 영구 지탱합니다. (행정력 1 소모)</small>
+            </div>
+            <div className="civic-buildings-grid">
+              {(['townHall', 'residences', 'granary', 'fortifications'] as CivicBuildingId[]).map((bId) => {
+                const buildings = state.civicBuildings || INITIAL_CIVIC_BUILDINGS
+                const b = buildings[bId]
+                if (!b) return null
+                const discount = monthlyProjection.constructionDiscount || 0
+                const goldCost = Math.round((b.baseCost.treasury + b.level * 35) * (1 - discount))
+                const timberCost = Math.round((b.baseCost.timber + b.level * 15) * (1 - discount))
+                const ironCost = Math.round((b.baseCost.iron + b.level * 10) * (1 - discount))
+                const canUp = canUpgradeCivic(bId)
+                return (
+                  <article className="civic-building-card" key={bId}>
+                    <div className="civic-b-header">
+                      <span className="civic-b-icon">{b.icon}</span>
+                      <div>
+                        <h4>{b.name}</h4>
+                        <span className="civic-b-level">시설 레벨 {b.level} / {b.maxLevel}</span>
+                      </div>
+                    </div>
+                    <p className="civic-b-desc">{b.description}</p>
+                    <div className="civic-b-benefit">
+                      <strong>시설 혜택:</strong> <span>{b.benefitText}</span>
+                    </div>
+                    <div className="civic-b-upgrade">
+                      <span className="cost-text">
+                        증축 비용: 🪙{goldCost} · 🪵{timberCost} · ⛓{ironCost} {discount > 0 ? `(${Math.round(discount * 100)}% 할인)` : ''}
+                      </span>
+                      <button
+                        disabled={!canUp}
+                        onClick={() => upgradeCivicBuilding(bId)}
+                        className="btn-upgrade-civic"
+                      >
+                        {b.level >= b.maxLevel ? '최고 단계' : (canUp ? '시설 증축' : '자원/행정력 부족')}
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </section>
         </div>
       )}
 

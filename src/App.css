@@ -5524,3 +5524,534 @@ body {
   padding-left: 6px;
 }
 
+/* ==========================================================================
+   Milestone 10: Unified Realm Turn & Field Quests & Civic Directives
+   ========================================================================== */
+
+/* Traits Banner */
+.realm-traits-banner {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.traits-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #c084fc;
+}
+
+.traits-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trait-chip {
+  background: rgba(88, 28, 135, 0.35);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #f1f5f9;
+}
+
+.trait-chip small {
+  color: #c084fc;
+  font-size: 10px;
+}
+
+/* Field Quest Panel */
+.field-quest-panel {
+  grid-column: 1 / -1;
+  background: linear-gradient(145deg, #161e31 0%, #0f172a 100%);
+  border: 1px solid #38bdf8;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: 0 14px 30px -8px rgba(14, 165, 233, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field-quest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  padding-bottom: 14px;
+}
+
+.field-quest-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-quest-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.field-quest-category-badge {
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.field-quest-category-badge.jackpot-badge {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.4) 100%);
+  border: 1px solid #f59e0b;
+  color: #fef08a;
+  font-weight: 800;
+  animation: pulse 2s infinite;
+}
+
+.btn-skip-quest {
+  background: rgba(100, 116, 139, 0.2);
+  border: 1px solid #475569;
+  color: #cbd5e1;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-skip-quest:hover {
+  background: rgba(148, 163, 184, 0.3);
+  color: #ffffff;
+  border-color: #94a3b8;
+}
+
+.field-quest-body h2 {
+  font-size: 20px;
+  margin: 0 0 6px;
+  color: #f8fafc;
+}
+
+.field-quest-summary {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.field-quest-step-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.step-title {
+  margin: 0;
+  font-size: 15px;
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.step-narrative {
+  margin: 0;
+  font-size: 13px;
+  color: #e2e8f0;
+  line-height: 1.6;
+}
+
+.field-quest-choices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.quest-choice-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.quest-choice-card.risk-card {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(145deg, #1f293d 0%, #172134 100%);
+}
+
+.quest-choice-card:hover {
+  border-color: #38bdf8;
+}
+
+.choice-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.choice-title-row h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #f1f5f9;
+  font-weight: 700;
+}
+
+.choice-cost-badge {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.choice-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+  flex-grow: 1;
+}
+
+/* Risk disclosure box */
+.risk-disclosure-box {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.risk-rates-header {
+  display: flex;
+  gap: 8px;
+}
+
+.success-rate-pill {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid #10b981;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.fail-rate-pill {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid #ef4444;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.risk-detail-row {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.risk-detail-row.success strong {
+  color: #34d399;
+}
+
+.risk-detail-row.success p {
+  margin: 2px 0 0;
+  color: #a7f3d0;
+}
+
+.risk-detail-row.failure strong {
+  color: #f87171;
+}
+
+.risk-detail-row.failure p {
+  margin: 2px 0 0;
+  color: #fecaca;
+}
+
+.btn-choose-quest-action {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-choose-quest-action:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.btn-choose-quest-action.btn-risk {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.btn-choose-quest-action.btn-risk:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.btn-choose-quest-action:disabled {
+  background: #334155;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+/* Civic Focus & Civic Buildings in Industry Tab */
+.civic-focus-section,
+.core-industry-section,
+.civic-buildings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.section-subtitle h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #f8fafc;
+}
+
+.section-subtitle small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.civic-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.civic-focus-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.civic-focus-card:hover {
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+}
+
+.civic-focus-card.active-focus {
+  border: 2px solid #38bdf8;
+  background: linear-gradient(145deg, #1b283f 0%, #152033 100%);
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+}
+
+.focus-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.focus-icon {
+  font-size: 20px;
+}
+
+.focus-header h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #f1f5f9;
+  flex-grow: 1;
+}
+
+.focus-badge {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.focus-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.45;
+  flex-grow: 1;
+}
+
+.focus-effects {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.focus-benefit {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.focus-cost {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.btn-select-focus {
+  background: #334155;
+  color: #cbd5e1;
+  border: none;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-select-focus.selected {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.btn-select-focus:hover:not(.selected) {
+  background: #475569;
+  color: #ffffff;
+}
+
+/* Civic Buildings Grid */
+.civic-buildings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.civic-building-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.civic-b-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.civic-b-icon {
+  font-size: 24px;
+}
+
+.civic-b-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #f1f5f9;
+}
+
+.civic-b-level {
+  font-size: 11px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.civic-b-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+  flex-grow: 1;
+}
+
+.civic-b-benefit {
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.civic-b-benefit strong {
+  color: #f59e0b;
+}
+
+.civic-b-benefit span {
+  color: #e2e8f0;
+}
+
+.civic-b-upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+.civic-b-upgrade .cost-text {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.btn-upgrade-civic {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 7px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-upgrade-civic:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.btn-upgrade-civic:disabled {
+  background: #334155;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+

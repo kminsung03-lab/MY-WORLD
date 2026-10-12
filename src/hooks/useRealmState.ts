@@ -12,11 +12,24 @@ import {
   evaluateTradeRoutes,
 } from '../constants/realmData'
 import {
+  CIVIC_FOCUS_DEFINITIONS,
+  INITIAL_CIVIC_BUILDINGS,
+  createFieldQuestTemplate,
+  getDeterministicQuestRoll,
+  pickNextFieldQuestId,
+  shouldSpawnFieldQuest,
+} from '../constants/fieldQuestData'
+import {
   INITIAL_DIRECTIVES,
   RIVAL_INTENT_TEMPLATES,
   evaluateAmbitionGoals,
 } from '../constants/rivalAiData'
 import { generateWorldEvent, getDeterministicSeed } from '../constants/worldEvents'
+import type {
+  CivicBuildingId,
+  CivicFocusId,
+  RealmTrait,
+} from '../types/fieldQuest'
 import type {
   AmbitionVictoryId,
   AnnexedTerritoryGovernance,
@@ -48,6 +61,72 @@ const policyDoctrine: Record<Exclude<Doctrine, 'unset'>, string> = {
 }
 
 let logCounter = 0
+
+export function checkAndMigrateLegacySave(current: RealmState): RealmState {
+  if (typeof window === 'undefined') return current
+  try {
+    const isAlreadyMigrated = localStorage.getItem('my_world_legacy_migrated_v3')
+    if (isAlreadyMigrated) return current
+
+    const legacyRaw = localStorage.getItem('my_world_game_save_v2') || localStorage.getItem('my_world_game_save_v1')
+    if (!legacyRaw) return current
+
+    const legacy = JSON.parse(legacyRaw)
+    const next = structuredClone(current)
+    const legRes = legacy.resources || {}
+    const legBld = legacy.buildings || {}
+
+    // Convert resources: gold -> treasury, food -> grain, wood -> timber, (stone + iron) -> iron
+    const goldToAdd = Math.max(0, Math.round(legRes.gold || 0))
+    const foodToAdd = Math.max(0, Math.round(legRes.food || 0))
+    const woodToAdd = Math.max(0, Math.round(legRes.wood || 0))
+    const ironToAdd = Math.max(0, Math.round((legRes.iron || 0) + (legRes.stone ? legRes.stone * 0.5 : 0)))
+
+    next.resources.treasury += goldToAdd
+    next.resources.grain += foodToAdd
+    next.resources.timber += woodToAdd
+    next.resources.iron += ironToAdd
+
+    // Convert buildings:
+    if (!next.civicBuildings) {
+      next.civicBuildings = structuredClone(INITIAL_CIVIC_BUILDINGS)
+    }
+    if (legBld.townHall?.level) {
+      next.civicBuildings.townHall.level = Math.min(5, Math.max(next.civicBuildings.townHall.level, legBld.townHall.level))
+    }
+    if (legBld.shelter?.level) {
+      next.civicBuildings.residences.level = Math.min(5, Math.max(next.civicBuildings.residences.level, Math.ceil(legBld.shelter.level / 2)))
+    }
+    if (legBld.storage?.level) {
+      next.civicBuildings.granary.level = Math.min(5, Math.max(next.civicBuildings.granary.level, legBld.storage.level))
+    }
+    if (legBld.wall?.level) {
+      next.civicBuildings.fortifications.level = Math.min(5, Math.max(next.civicBuildings.fortifications.level, legBld.wall.level))
+    }
+    if (legBld.blacksmith?.level && legBld.blacksmith.level > 1) {
+      next.industries.ironworks.level = Math.min(5, Math.max(next.industries.ironworks.level, Math.ceil(legBld.blacksmith.level / 2)))
+    }
+
+    logCounter += 1
+    next.logs = [
+      {
+        id: `migrated_legacy_${Date.now()}`,
+        date: `${next.year}년 ${next.month}월`,
+        title: '📜 [레거시 영지 통합 완료] 중앙 경제 원장 이관',
+        detail: `과거 마을 개척지의 물자(금화 +${goldToAdd}, 식량 +${foodToAdd}, 목재 +${woodToAdd}, 철재 +${ironToAdd})와 관저/방벽 시설이 변경백령 시정 체계로 완전히 통합 이관되었습니다.`,
+        tone: 'royal',
+      },
+      ...next.logs.slice(0, 11),
+    ]
+
+    localStorage.setItem('my_world_legacy_migrated_v3', 'true')
+    return next
+  } catch (err) {
+    console.error('Failed to migrate legacy save', err)
+    return current
+  }
+}
+
 
 export function useRealmState() {
   const [state, setState] = useState<RealmState>(() => {
@@ -124,7 +203,13 @@ export function useRealmState() {
           ? parsed.directives
           : JSON.parse(JSON.stringify(INITIAL_DIRECTIVES))
 
-        return {
+        const migratedCivicFocus = parsed.civicFocus || 'balanced'
+        const migratedCivicBuildings = parsed.civicBuildings || structuredClone(INITIAL_CIVIC_BUILDINGS)
+        const migratedRealmTraits = Array.isArray(parsed.realmTraits) ? parsed.realmTraits : []
+        const migratedFieldQuest = parsed.pendingFieldQuest || null
+        const migratedCompletedFieldQuestsCount = typeof parsed.completedFieldQuestsCount === 'number' ? parsed.completedFieldQuestsCount : 0
+
+        const loaded: RealmState = {
           ...initial,
           ...parsed,
           neighbors: migratedNeighbors,
@@ -134,12 +219,18 @@ export function useRealmState() {
           rivalIntents: migratedRivalIntents,
           ambitionState: migratedAmbitionState,
           directives: migratedDirectives,
+          civicFocus: migratedCivicFocus,
+          civicBuildings: migratedCivicBuildings,
+          realmTraits: migratedRealmTraits,
+          pendingFieldQuest: migratedFieldQuest,
+          completedFieldQuestsCount: migratedCompletedFieldQuestsCount,
         }
+        return checkAndMigrateLegacySave(loaded)
       }
     } catch (error) {
       console.error('Failed to load realm save', error)
     }
-    return cloneInitialState()
+    return checkAndMigrateLegacySave(cloneInitialState())
   })
 
 
@@ -237,6 +328,37 @@ export function useRealmState() {
     const baseIron = ironworks * 7
     const baseTimber = lumber * 10
 
+    const civicFocusDef = CIVIC_FOCUS_DEFINITIONS[state.civicFocus || 'balanced']
+    const civicImpact = civicFocusDef?.monthlyImpact || {}
+
+    const cBuildings = state.civicBuildings || INITIAL_CIVIC_BUILDINGS
+    const civicTreasury = (cBuildings.townHall?.level || 0) * 6
+    const civicGrain = (cBuildings.granary?.level || 0) * 8
+    const civicManpowerBonus = (cBuildings.residences?.level || 0) * 20
+
+    let traitTreasury = 0
+    let traitGrain = 0
+    let traitIron = 0
+    let traitTimber = 0
+    let traitAdminBonus = 0
+    let constructionDiscount = 0
+
+    if (state.realmTraits) {
+      for (const t of state.realmTraits) {
+        if (t.effects.monthlyTreasury) traitTreasury += t.effects.monthlyTreasury
+        if (t.effects.monthlyGrain) traitGrain += t.effects.monthlyGrain
+        if (t.effects.monthlyIron) traitIron += t.effects.monthlyIron
+        if (t.effects.monthlyTimber) traitTimber += t.effects.monthlyTimber
+        if (t.effects.adminBonus) traitAdminBonus += t.effects.adminBonus
+        if (t.effects.constructionDiscountRate) constructionDiscount = Math.max(constructionDiscount, t.effects.constructionDiscountRate)
+      }
+    }
+
+    const adjustedBaseGrossIncome = baseGrossIncome + civicTreasury + traitTreasury + (civicImpact.treasuryDelta || 0)
+    const adjustedBaseGrain = baseGrain + civicGrain + traitGrain + (civicImpact.grainDelta || 0)
+    const adjustedBaseIron = baseIron + traitIron + (civicImpact.ironDelta || 0)
+    const adjustedBaseTimber = baseTimber + traitTimber + (civicImpact.timberDelta || 0)
+
     const activeAllies = state.neighbors.filter(
       (n) => n.diplomaticStage === 'alliance' && !n.annexed && n.id !== state.activeCampaign?.targetId &&
         diplomacyEval.evaluations.some((evaluation) => evaluation.neighborId === n.id && !evaluation.isSuspended),
@@ -244,16 +366,16 @@ export function useRealmState() {
     const alliedAuxiliaryPower = activeAllies.reduce((sum, a) => sum + a.strength * 5, 0)
 
     return {
-      treasury: baseGrossIncome + tradeEval.totalNet.treasury + diplomacyEval.totalNet.treasury + dominionEval.totalNet.treasury - militaryUpkeep,
-      grossIncome: baseGrossIncome,
+      treasury: adjustedBaseGrossIncome + tradeEval.totalNet.treasury + diplomacyEval.totalNet.treasury + dominionEval.totalNet.treasury - militaryUpkeep,
+      grossIncome: adjustedBaseGrossIncome,
       militaryUpkeep,
-      grain: baseGrain + tradeEval.totalNet.grain + diplomacyEval.totalNet.grain + dominionEval.totalNet.grain,
-      iron: baseIron + tradeEval.totalNet.iron + diplomacyEval.totalNet.iron + dominionEval.totalNet.iron,
-      timber: baseTimber + tradeEval.totalNet.timber + diplomacyEval.totalNet.timber + dominionEval.totalNet.timber,
-      baseIndustryIncome: baseGrossIncome,
-      baseGrain,
-      baseIron,
-      baseTimber,
+      grain: adjustedBaseGrain + tradeEval.totalNet.grain + diplomacyEval.totalNet.grain + dominionEval.totalNet.grain,
+      iron: adjustedBaseIron + tradeEval.totalNet.iron + diplomacyEval.totalNet.iron + dominionEval.totalNet.iron,
+      timber: adjustedBaseTimber + tradeEval.totalNet.timber + diplomacyEval.totalNet.timber + dominionEval.totalNet.timber,
+      baseIndustryIncome: adjustedBaseGrossIncome,
+      baseGrain: adjustedBaseGrain,
+      baseIron: adjustedBaseIron,
+      baseTimber: adjustedBaseTimber,
       activeTrades: tradeEval.activeCount,
       suspendedTrades: tradeEval.suspendedCount,
       tradeEvaluation: tradeEval,
@@ -261,7 +383,7 @@ export function useRealmState() {
       diplomacyNet: diplomacyEval.totalNet,
       diplomacyCosts: diplomacyEval.totalCosts,
       diplomacyYields: diplomacyEval.totalYields,
-      diplomaticManpowerYield: diplomacyEval.totalManpowerYield,
+      diplomaticManpowerYield: diplomacyEval.totalManpowerYield + civicManpowerBonus + (civicImpact.manpowerDelta || 0),
       activeAlliances: diplomacyEval.activeAllianceCount,
       activeVassals: diplomacyEval.activeVassalCount,
       suspendedDiplomacyCount: diplomacyEval.suspendedCount,
@@ -277,6 +399,17 @@ export function useRealmState() {
       campaignCost,
       resourcesForTrade,
       resourcesForDiplomacy,
+      civicFocusDef,
+      civicImpact,
+      civicTreasury,
+      civicGrain,
+      civicManpowerBonus,
+      traitTreasury,
+      traitGrain,
+      traitIron,
+      traitTimber,
+      traitAdminBonus,
+      constructionDiscount,
       resourcesForDominion,
     }
   }, [state])
@@ -771,6 +904,9 @@ export function useRealmState() {
       const hasBureau = previous.policies.includes('royal_bureau')
       const hasCharter = previous.policies.includes('merchant_charter')
       const hasMuster = previous.policies.includes('border_muster')
+      const hasTownHallAdmin = (previous.civicBuildings?.townHall?.level || 0) >= 3
+      const traitAdminBonus = (previous.realmTraits || []).reduce((acc, t) => acc + (t.effects.adminBonus || 0), 0)
+
       next.resources.treasury = Math.max(0, previous.resources.treasury + monthlyProjection.treasury)
       next.resources.grain = Math.max(0, previous.resources.grain + monthlyProjection.grain)
       next.resources.iron += monthlyProjection.iron
@@ -781,11 +917,12 @@ export function useRealmState() {
         next.year += 1
       }
       next.capacities = {
-        administration: 3 + (hasBureau ? 1 : 0),
+        administration: 3 + (hasBureau ? 1 : 0) + (hasTownHallAdmin ? 1 : 0) + traitAdminBonus,
         diplomacy: 3 + (hasCharter ? 1 : 0),
         command: 3 + (hasMuster ? 1 : 0),
       }
-      const growth = previous.resources.grain > 40 ? 85 + previous.industries.farms.level * 8 : -45
+      const civicPopGrowth = (previous.civicBuildings?.residences?.level || 0) * 30
+      const growth = previous.resources.grain > 40 ? 85 + previous.industries.farms.level * 8 + civicPopGrowth : -45
       next.population = Math.max(1000, previous.population + growth)
       next.manpower = Math.max(0, previous.manpower + Math.max(25, Math.round(growth * 0.4)) + monthlyProjection.diplomaticManpowerYield)
       if (previous.resources.grain <= 0) next.stability = clamp(next.stability - 5, 0, 100)
@@ -1277,6 +1414,46 @@ export function useRealmState() {
         }
       }
 
+      // TRAITS DURATION TICK
+      if (next.realmTraits && next.realmTraits.length > 0) {
+        const remainingTraits: RealmTrait[] = []
+        for (const trait of next.realmTraits) {
+          if (typeof trait.durationMonths === 'number') {
+            const nextDur = trait.durationMonths - 1
+            if (nextDur <= 0) {
+              addLog(next, `[특성 효과 종료] ${trait.name}`, `${trait.name} 효과 기간이 만료되었습니다.`, 'neutral')
+            } else {
+              remainingTraits.push({ ...trait, durationMonths: nextDur })
+            }
+          } else {
+            remainingTraits.push(trait)
+          }
+        }
+        next.realmTraits = remainingTraits
+      }
+
+      // CIVIC FOCUS MONTHLY EFFECTS
+      const civicDef = CIVIC_FOCUS_DEFINITIONS[next.civicFocus || 'balanced']
+      if (civicDef?.monthlyImpact.stabilityDelta) {
+        next.stability = clamp(next.stability + civicDef.monthlyImpact.stabilityDelta, 0, 100)
+      }
+      if (civicDef?.monthlyImpact.autonomyDelta) {
+        next.autonomy = clamp(next.autonomy + civicDef.monthlyImpact.autonomyDelta, 0, 100)
+      }
+
+      // FIELD QUEST OPPORTUNITY SPAWN
+      if (!next.pendingFieldQuest && shouldSpawnFieldQuest(next.year, next.month)) {
+        const nextQId = pickNextFieldQuestId(next.year, next.month, next.completedFieldQuestsCount || 0)
+        const newQuest = createFieldQuestTemplate(nextQId, next.year, next.month, next.year * 100 + next.month)
+        next.pendingFieldQuest = newQuest
+        addLog(
+          next,
+          `[현장 시찰 보고] ${newQuest.title}`,
+          `${newQuest.summary} (영주 순행을 직접 지휘하거나 현지 관리에게 위임할 수 있습니다.)`,
+          newQuest.isJackpotOpportunity ? 'royal' : 'neutral',
+        )
+      }
+
       return next
     })
   }
@@ -1480,6 +1657,160 @@ export function useRealmState() {
     })
   }
 
+  const setCivicFocus = (focusId: CivicFocusId) => {
+    setState((previous) => {
+      if (previous.civicFocus === focusId) return previous
+      const def = CIVIC_FOCUS_DEFINITIONS[focusId]
+      if (!def) return previous
+      const next = structuredClone(previous)
+      next.civicFocus = focusId
+      addLog(next, `[시정 집중 변경] ${def.name}`, `${def.shortDesc} (${def.effectDesc})`, 'neutral')
+      return next
+    })
+  }
+
+  const upgradeCivicBuilding = (buildingId: CivicBuildingId) => {
+    setState((previous) => {
+      const buildings = previous.civicBuildings || INITIAL_CIVIC_BUILDINGS
+      const target = buildings[buildingId]
+      if (!target || target.level >= target.maxLevel) return previous
+      if (previous.capacities.administration < 1) return previous
+
+      let discount = 0
+      if (previous.realmTraits) {
+        for (const t of previous.realmTraits) {
+          if (t.effects.constructionDiscountRate) discount = Math.max(discount, t.effects.constructionDiscountRate)
+        }
+      }
+
+      const goldCost = Math.round((target.baseCost.treasury + target.level * 35) * (1 - discount))
+      const timberCost = Math.round((target.baseCost.timber + target.level * 15) * (1 - discount))
+      const ironCost = Math.round((target.baseCost.iron + target.level * 10) * (1 - discount))
+
+      if (
+        previous.resources.treasury < goldCost ||
+        previous.resources.timber < timberCost ||
+        previous.resources.iron < ironCost
+      ) {
+        return previous
+      }
+
+      const next = structuredClone(previous)
+      if (!next.civicBuildings) next.civicBuildings = structuredClone(INITIAL_CIVIC_BUILDINGS)
+      next.resources.treasury -= goldCost
+      next.resources.timber -= timberCost
+      next.resources.iron -= ironCost
+      next.capacities.administration -= 1
+      next.civicBuildings[buildingId].level += 1
+
+      addLog(
+        next,
+        `[시설 증축] ${target.name} Lv.${next.civicBuildings[buildingId].level}`,
+        `국고 🪙${goldCost}, 목재 🪵${timberCost}, 철재 ⛓${ironCost}를 투입해 ${target.name}을(를) 증축했습니다. (${target.benefitText})`,
+        'good',
+      )
+      return next
+    })
+  }
+
+  const resolveFieldQuestChoice = (choiceId: string) => {
+    setState((previous) => {
+      if (!previous.pendingFieldQuest) return previous
+      const quest = previous.pendingFieldQuest
+      const currentStep = quest.steps[quest.currentStepId]
+      if (!currentStep) return previous
+      const choice = currentStep.choices.find((c) => c.id === choiceId)
+      if (!choice) return previous
+
+      const resCosts = choice.costs || {}
+      const capCosts = choice.costsCapacities || {}
+      if (
+        (resCosts.treasury && previous.resources.treasury < resCosts.treasury) ||
+        (resCosts.grain && previous.resources.grain < resCosts.grain) ||
+        (resCosts.iron && previous.resources.iron < resCosts.iron) ||
+        (resCosts.timber && previous.resources.timber < resCosts.timber) ||
+        (capCosts.administration && previous.capacities.administration < capCosts.administration) ||
+        (capCosts.diplomacy && previous.capacities.diplomacy < capCosts.diplomacy) ||
+        (capCosts.command && previous.capacities.command < capCosts.command)
+      ) {
+        return previous
+      }
+
+      const next = structuredClone(previous)
+      if (resCosts.treasury) next.resources.treasury -= resCosts.treasury
+      if (resCosts.grain) next.resources.grain -= resCosts.grain
+      if (resCosts.iron) next.resources.iron -= resCosts.iron
+      if (resCosts.timber) next.resources.timber -= resCosts.timber
+      if (capCosts.administration) next.capacities.administration -= capCosts.administration
+      if (capCosts.diplomacy) next.capacities.diplomacy -= capCosts.diplomacy
+      if (capCosts.command) next.capacities.command -= capCosts.command
+
+      let isSuccess = true
+      if (choice.riskDisclosure) {
+        const roll = getDeterministicQuestRoll(previous.year, previous.month, choice.id + quest.seed)
+        isSuccess = roll < choice.riskDisclosure.successRate
+      }
+
+      const appliedImpact = isSuccess ? choice.impact : choice.failureImpact
+
+      if (appliedImpact) {
+        if (appliedImpact.resources) {
+          if (appliedImpact.resources.treasury) next.resources.treasury = Math.max(0, next.resources.treasury + appliedImpact.resources.treasury)
+          if (appliedImpact.resources.grain) next.resources.grain = Math.max(0, next.resources.grain + appliedImpact.resources.grain)
+          if (appliedImpact.resources.iron) next.resources.iron = Math.max(0, next.resources.iron + appliedImpact.resources.iron)
+          if (appliedImpact.resources.timber) next.resources.timber = Math.max(0, next.resources.timber + appliedImpact.resources.timber)
+        }
+        if (appliedImpact.capacities) {
+          if (appliedImpact.capacities.administration) next.capacities.administration += appliedImpact.capacities.administration
+          if (appliedImpact.capacities.diplomacy) next.capacities.diplomacy += appliedImpact.capacities.diplomacy
+          if (appliedImpact.capacities.command) next.capacities.command += appliedImpact.capacities.command
+        }
+        if (appliedImpact.stability) next.stability = clamp(next.stability + appliedImpact.stability, 0, 100)
+        if (appliedImpact.legitimacy) next.legitimacy = clamp(next.legitimacy + appliedImpact.legitimacy, 0, 100)
+        if (appliedImpact.manpower) next.manpower = Math.max(0, next.manpower + appliedImpact.manpower)
+        if (appliedImpact.relationTargetId && appliedImpact.relationDelta) {
+          const neighbor = next.neighbors.find((n) => n.id === appliedImpact.relationTargetId)
+          if (neighbor) {
+            neighbor.relation = clamp(neighbor.relation + appliedImpact.relationDelta, -100, 100)
+          }
+        }
+        if (appliedImpact.traitAcquired) {
+          if (!next.realmTraits) next.realmTraits = []
+          next.realmTraits = [
+            ...next.realmTraits.filter((t) => t.id !== appliedImpact.traitAcquired!.id),
+            appliedImpact.traitAcquired,
+          ]
+        }
+        addLog(next, appliedImpact.logTitle, appliedImpact.logDetail, appliedImpact.logTone)
+      }
+
+      if (choice.isTerminal) {
+        next.pendingFieldQuest = null
+        next.completedFieldQuestsCount = (next.completedFieldQuestsCount || 0) + 1
+      } else if (choice.nextStepId && next.pendingFieldQuest) {
+        next.pendingFieldQuest.currentStepId = choice.nextStepId
+      }
+
+      return next
+    })
+  }
+
+  const skipFieldQuest = () => {
+    setState((previous) => {
+      if (!previous.pendingFieldQuest) return previous
+      const questTitle = previous.pendingFieldQuest.title
+      const next = structuredClone(previous)
+      next.pendingFieldQuest = null
+      addLog(
+        next,
+        `[현장 순행 위임] ${questTitle}`,
+        `영주께서는 현장 순행을 현지 관리관에게 자율 위임하셨습니다. 일상 행정이 정상적으로 집행됩니다.`,
+        'neutral',
+      )
+      return next
+    })
+  }
+
   const resetRealm = () => {
     if (!window.confirm('영지 경영 진행도를 처음부터 다시 시작하시겠습니까?')) return
     localStorage.removeItem(SAVE_KEY)
@@ -1509,8 +1840,13 @@ export function useRealmState() {
     claimDirectiveReward,
     chooseAmbition,
     acknowledgeOutcome,
+    setCivicFocus,
+    upgradeCivicBuilding,
+    resolveFieldQuestChoice,
+    skipFieldQuest,
   }
 
 }
 
 export type RealmHandle = ReturnType<typeof useRealmState>
+

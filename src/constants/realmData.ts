@@ -17,6 +17,7 @@ import type {
   TradeContractId,
   TradeRouteEvaluation,
 } from '../types/realm'
+import { INITIAL_CIVIC_BUILDINGS } from './fieldQuestData'
 
 export interface IndustryDefinition {
   id: IndustryId
@@ -1454,5 +1455,10 @@ export const INITIAL_REALM_STATE: RealmState = {
       rewardDesc: '안정도 +6 · 금화 +60',
     },
   ],
+  civicFocus: 'balanced',
+  civicBuildings: INITIAL_CIVIC_BUILDINGS,
+  realmTraits: [],
+  pendingFieldQuest: null,
+  completedFieldQuestsCount: 0,
 }
 

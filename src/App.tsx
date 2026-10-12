@@ -39,7 +39,7 @@ function App() {
         <RealmView
           realm={realm}
           onOpenMap={() => setActiveTab('world')}
-          onOpenLocal={() => setActiveTab('town')}
+          onOpenLocal={() => setActiveTab('realm')}
         />
       )}
 
@@ -109,6 +109,43 @@ function App() {
 
       {/* 3. Main Action View */}
       <main className="main-content-area">
+        {activeTab !== 'world' && (
+          <div
+            className="unified-integration-notice"
+            style={{
+              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+              border: '1px solid #38bdf8',
+              borderRadius: '12px',
+              padding: '12px 18px',
+              marginBottom: '16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontSize: '13px', color: '#e2e8f0' }}>
+              👑 <strong>월간 전략 통합 체제</strong>: 게임이 월간 군주 결단 체제로 일원화되었습니다. 과거 수동 채집 대신 <strong>[👑 영지 경영 → 🏛 시정과 산업]</strong>에서 월간 시정 명령과 선택형 현장 순행을 진행하세요!
+            </span>
+            <button
+              onClick={() => setActiveTab('realm')}
+              style={{
+                background: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              👑 영지 경영으로 복귀
+            </button>
+          </div>
+        )}
+
         {activeTab === 'town' && (
           <TownView
             buildings={gameState.buildings}

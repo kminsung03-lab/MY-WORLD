@@ -1,3 +1,5 @@
+import type { CivicBuilding, CivicBuildingId, CivicFocusId, FieldQuest, RealmTrait } from './fieldQuest'
+
 export type RealmResourceKey = 'treasury' | 'grain' | 'iron' | 'timber'
 export type CapacityKey = 'administration' | 'diplomacy' | 'command'
 export type Doctrine = 'unset' | 'stewardship' | 'commerce' | 'military'
@@ -318,5 +320,11 @@ export interface RealmState {
   rivalIntents?: RivalIntent[]
   ambitionState?: DynastyAmbitionState
   directives?: StrategicDirective[]
+  civicFocus?: CivicFocusId
+  civicBuildings?: Record<CivicBuildingId, CivicBuilding>
+  realmTraits?: RealmTrait[]
+  pendingFieldQuest?: FieldQuest | null
+  completedFieldQuestsCount?: number
 }
+
 
