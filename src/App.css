@@ -6304,13 +6304,14 @@ body {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
 }
 
-/* Panorama Visual Viewport */
+/* Panorama Visual Viewport (Unobstructed Fantasy Landscape) */
 .panorama-canvas-viewport {
   position: relative;
   width: 100%;
-  height: 240px;
+  height: 310px;
   overflow: hidden;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: #0f172a;
 }
 
 .panorama-skyline-svg {
@@ -6319,186 +6320,79 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
+  display: block;
 }
 
-.panorama-interactive-stage {
+.panorama-sector-legend-strip {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: 28% 26% 23% 23%;
-  padding: 10px 14px;
-  box-sizing: border-box;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.district-visual-sector {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
-  padding: 8px 10px;
-  min-height: 110px;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
   display: flex;
-  flex-direction: column;
   justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sector-pill {
+  background: rgba(15, 23, 42, 0.78);
   backdrop-filter: blur(4px);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.district-visual-sector:hover {
-  transform: translateY(-2px);
-  border-color: rgba(251, 191, 36, 0.6);
-}
-
-.district-visual-sector.is-focus {
-  border-color: #fbbf24;
-  box-shadow: 0 0 14px rgba(251, 191, 36, 0.2);
-}
-
-.sector-tag {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  padding: 4px 10px;
   font-size: 11px;
-  font-weight: 800;
-  color: #f8fafc;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 3px;
-  margin-bottom: 6px;
-}
-
-/* Sector Visual Items */
-.agri-visual-items,
-.keep-visual-items,
-.comm-visual-items,
-.mil-visual-items {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.visual-field-furrows {
-  height: 14px;
-  background: repeating-linear-gradient(45deg, #4d7c0f, #4d7c0f 5px, #365314 5px, #365314 10px);
-  border-radius: 4px;
-}
-
-.visual-field-furrows.golden {
-  background: repeating-linear-gradient(45deg, #ca8a04, #ca8a04 5px, #854d0e 5px, #854d0e 10px);
-}
-
-.visual-field-furrows.expanded {
-  height: 20px;
-}
-
-.visual-granary,
-.visual-windmill,
-.visual-citadel,
-.visual-market-stalls,
-.visual-caravan,
-.visual-walls,
-.visual-garrison {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #e2e8f0;
   font-weight: 700;
+  color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
 }
 
-.citadel-spires {
-  display: flex;
-  gap: 4px;
-  font-size: 18px;
-}
-
-.citadel-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.citadel-body strong {
-  font-size: 13px;
+.sector-pill.center-keep {
+  border-color: rgba(251, 191, 36, 0.4);
   color: #fef08a;
 }
 
-.citadel-body small {
-  font-size: 10px;
-  color: #94a3b8;
+.sector-pill.active {
+  border-color: #fbbf24;
+  color: #fef08a;
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
 }
 
-.stall {
-  display: inline-block;
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-size: 10px;
-  margin-right: 4px;
-  white-space: nowrap;
-}
-
-.stall-red { background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; }
-.stall-blue { background: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6; color: #93c5fd; }
-.stall-gold { background: rgba(234, 179, 8, 0.25); border: 1px solid #eab308; color: #fde047; }
-.stall-simple { background: rgba(148, 163, 184, 0.2); border: 1px solid #64748b; color: #cbd5e1; }
-
-.visual-walls {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.wall-icon {
-  font-size: 11px;
-  color: #cbd5e1;
-}
-
-.tower-icon {
-  font-size: 10px;
-  color: #94a3b8;
-}
-
-/* Distress Overlay in Panorama */
-.panorama-distress-overlay {
+.panorama-distress-banner {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 10px;
-}
-
-.smoke-plume {
-  font-size: 26px;
-  position: absolute;
-  animation: float-smoke 3s infinite ease-in-out;
-  opacity: 0.7;
-}
-
-.plume-1 { left: 15%; top: 40%; animation-delay: 0s; }
-.plume-2 { right: 25%; top: 30%; animation-delay: 1.2s; }
-.plume-3 { left: 45%; top: 25%; animation-delay: 0.6s; }
-
-.distress-alarm-strip {
-  align-self: center;
-  background: rgba(185, 28, 28, 0.9);
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(185, 28, 28, 0.92);
   color: #ffffff;
-  padding: 4px 14px;
+  padding: 5px 16px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 800;
   border: 1px solid #ef4444;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.65);
+  z-index: 6;
+  animation: pulse-border 1.5s infinite;
 }
 
-@keyframes float-smoke {
-  0% { transform: translateY(0) scale(0.9); opacity: 0.4; }
-  50% { transform: translateY(-16px) scale(1.15); opacity: 0.8; }
-  100% { transform: translateY(-32px) scale(1.3); opacity: 0; }
+/* Map Panel Mini-Diorama Frame (Synchronized with Map View) */
+.living-fief-diorama-frame {
+  width: 100%;
+  height: 145px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  margin: 10px 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  background: #0f172a;
+}
+
+.diorama-mini-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 @keyframes pulse-border {
@@ -6589,11 +6483,9 @@ body {
 
 /* Responsive adjustments for mobile and tablets */
 @media (max-width: 960px) {
-  .panorama-interactive-stage {
-    grid-template-columns: 1fr 1fr;
-    height: auto;
-    position: relative;
-    padding-top: 80px;
+  .panorama-sector-legend-strip {
+    flex-wrap: wrap;
+    bottom: 6px;
   }
   .panorama-footer-grid {
     grid-template-columns: 1fr 1fr;
@@ -6601,8 +6493,11 @@ body {
 }
 
 @media (max-width: 640px) {
-  .panorama-interactive-stage {
-    grid-template-columns: 1fr;
+  .panorama-canvas-viewport {
+    height: 240px;
+  }
+  .panorama-sector-legend-strip {
+    display: none; /* Maximize landscape visibility on compact mobile */
   }
   .panorama-footer-grid {
     grid-template-columns: 1fr;

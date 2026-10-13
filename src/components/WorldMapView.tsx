@@ -31,6 +31,7 @@ import {
 import type { RealmHandle } from '../hooks/useRealmState'
 import { analyzeRealmGrowth } from '../utils/realmGrowthVisuals'
 import { drawPlayerFiefLivingLayer } from '../utils/fiefCanvasRenderer'
+import { LivingRealmDioramaSvg } from './LivingRealmDioramaSvg'
 
 interface WorldMapViewProps {
   gameState?: GameState
@@ -736,6 +737,11 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
                         {growthAnalysis.distress === 'critical' ? '🔥 심각한 전란/붕괴' : '⚠️ 경계/불안정'}
                       </span>
                     )}
+                  </div>
+
+                  {/* Detailed Living Fief Mini-Diorama (Synchronized with Map & Growth state) */}
+                  <div className="living-fief-diorama-frame">
+                    <LivingRealmDioramaSvg analysis={growthAnalysis} className="diorama-mini-svg" viewBox="0 0 1000 360" />
                   </div>
 
                   <h5 className="living-fief-subheading">{growthAnalysis.tierTitle}</h5>
