@@ -184,7 +184,7 @@ function ownerAt(x:number,y:number,landmassId:string){let nearest:Province|undef
 export const NATIONAL_BORDERS:BorderSegment[]=[]
 PROVINCES.forEach(province=>{const polygon=province.vertices;for(let i=0;i<polygon.length;i++){const a=polygon[i],b=polygon[(i+1)%polygon.length],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1,mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,ox=(-dy/length)*5,oy=(dx/length)*5,left=ownerAt(mx+ox,my+oy,province.landmassId||''),right=ownerAt(mx-ox,my-oy,province.landmassId||'');if(left&&right&&left!==right)NATIONAL_BORDERS.push({from:a,to:b,landmassId:province.landmassId||''})}})
 
-export const NATION_LABEL_POINTS:Record<string,[number,number]>={vael_crown:[175,350],frostmark:[1030,250],thorn_empire:[520,470],auric_league:[520,960],luminas:[1020,690],sylvana:[1600,600],obsidian_pact:[900,1110],solaris:[1550,1080],moon_clans:[1830,370],jade_dynasty:[1990,770],wild_marches:[1310,780]}
+export const NATION_LABEL_POINTS:Record<string,[number,number]>={vael_crown:[175,350],frostmark:[1030,250],thorn_empire:[520,470],auric_league:[520,960],luminas:[860,620],sylvana:[1600,600],obsidian_pact:[900,1110],solaris:[1550,1080],moon_clans:[1830,370],jade_dynasty:[1990,770],wild_marches:[1310,780]}
 
 export const STRATEGIC_TARGET_COORDINATES: Record<string, [number, number]> = {
   crown: [997, 630],      // 루미나스 왕령 (오르미어)

@@ -211,8 +211,8 @@ async function runBrowserVerification() {
       const tierBadge6m = await page.innerText('.p-tier-badge')
       const specBadge6m = await page.innerText('.p-spec-badge')
       console.log(`  - 6개월 실플레이 후: "${title6m}" [${tierBadge6m} · ${specBadge6m}]`)
-      if (!tierBadge6m.includes('2단계') && !tierBadge6m.includes('3단계')) {
-        throw new Error('농업 투자 후 6개월 시점에 최소 2단계 이상이어야 합니다.')
+      if (!tierBadge6m.includes('2단계')) {
+        throw new Error(`농업 투자 후 6개월 시점은 엄격히 제2단계(발전 성읍)여야 합니다. 실제: ${tierBadge6m}`)
       }
 
       await page.locator('.living-realm-panorama-container').screenshot({
@@ -247,6 +247,15 @@ async function runBrowserVerification() {
 
       for (let m = 0; m < 6; m++) {
         await advanceOneMonth(page)
+        if (m === 1 || m === 3) {
+          await page.click('button.realm-tab-btn:has-text("시정과 산업")')
+          const farmBtnMid = await page.$('.industry-card:has-text("농경지") button:not(:disabled)')
+          if (farmBtnMid) {
+            await farmBtnMid.click()
+            console.log(`    ✓ [${m + 7}개월차] 농경지 확장 단행`)
+          }
+          await page.click('button.realm-tab-btn:has-text("영지 개요")')
+        }
       }
 
       // Capture Month 12 (T3 Golden Granary)
@@ -254,6 +263,9 @@ async function runBrowserVerification() {
       const tierBadge12m = await page.innerText('.p-tier-badge')
       const specBadge12m = await page.innerText('.p-spec-badge')
       console.log(`  - 12개월 실플레이 후: "${title12m}" [${tierBadge12m} · ${specBadge12m}]`)
+      if (!tierBadge12m.includes('3단계')) {
+        throw new Error(`농업 투자 후 12개월 시점은 엄격히 제3단계(번영 중심도시)여야 합니다. 실제: ${tierBadge12m}`)
+      }
       if (!specBadge12m.includes('농업')) throw new Error('농업 특화가 완성되지 않았습니다.')
 
       await page.locator('.living-realm-panorama-container').screenshot({
@@ -272,7 +284,7 @@ async function runBrowserVerification() {
     }
 
     // =================================================================
-    // Scenario 3: 실제 상업 경로 12개월 누적 플레이 (Commercial 12m T3)
+    // Scenario 3: 실제 상업 경로 12개월 누적 플레이 (0m -> 6m T2 -> 12m T3)
     // =================================================================
     console.log('\n-----------------------------------------------------------------')
     console.log('▶ [시나리오 3: 상업 경로 실제 사용자 조작 12개월 누적 플레이 (독립 Context)]')
@@ -287,21 +299,21 @@ async function runBrowserVerification() {
       await page.waitForSelector('.living-realm-panorama-container')
 
       // Step 3.1: Commercial Investments
-      console.log('  - 상업 중심 시정 지침, 시장 개설, 관저 확충 집행')
+      console.log('  - 1~6개월차: 상업 중심 시정 지침, 시장 개설, 관저 확충 집행')
       await page.click('button.realm-tab-btn:has-text("시정과 산업")')
       await page.waitForSelector('.civic-focus-card')
 
       await page.click('.civic-focus-card:has-text("장터 및 상권 장려") button')
       console.log('    ✓ 시정 지침 하달: 장터 및 상권 장려')
 
-      // Upgrade Market
-      const marketBtn = await page.$('.industry-card:has-text("장터") button')
+      // Upgrade Market Lv.2
+      const marketBtn = await page.$('.industry-card:has-text("시장") button')
       if (marketBtn && !(await marketBtn.isDisabled())) {
         await marketBtn.click()
-        console.log('    ✓ 기간 산업 확장: 장터와 상점가')
+        console.log('    ✓ 기간 산업 확장: 시장과 상점가')
       }
 
-      // Upgrade TownHall
+      // Upgrade TownHall Lv.2
       const hallBtn = await page.$('.civic-building-card:has-text("영주 관저") .btn-upgrade-civic')
       if (hallBtn && !(await hallBtn.isDisabled())) {
         await hallBtn.click()
@@ -320,26 +332,59 @@ async function runBrowserVerification() {
       await page.click('button.realm-tab-btn:has-text("영지 개요")')
       await page.waitForSelector('.living-realm-panorama-container')
 
-      // Advance 12 months with commercial focus
-      for (let m = 0; m < 12; m++) {
+      // Advance to Month 6
+      for (let m = 0; m < 6; m++) {
         await advanceOneMonth(page)
-        // Mid-game market upgrade if affordable
-        if (m === 5) {
+      }
+
+      // Capture Month 6 (T2 Commercial)
+      const commTitle6m = await page.innerText('.panorama-realm-title')
+      const commTier6m = await page.innerText('.p-tier-badge')
+      const commSpec6m = await page.innerText('.p-spec-badge')
+      console.log(`  - 6개월 상업 실플레이 후: "${commTitle6m}" [${commTier6m} · ${commSpec6m}]`)
+      if (!commTier6m.includes('2단계')) {
+        throw new Error(`상업 투자 후 6개월 시점은 엄격히 제2단계(발전 성읍)여야 합니다. 실제: ${commTier6m}`)
+      }
+
+      await page.locator('.living-realm-panorama-container').screenshot({
+        path: path.join(screenshotDir, 'C_commercial_6m_t2_panorama.png'),
+      })
+      console.log(`  ✓ 캡처 저장: C_commercial_6m_t2_panorama.png`)
+
+      await captureErdenMap(page, path.join(screenshotDir, 'C_commercial_6m_t2_map.png'))
+      console.log(`  ✓ 캡처 저장: C_commercial_6m_t2_map.png`)
+
+      // Step 3.2: Advance to Month 12 with Market Lv 3 upgrade
+      console.log('  - 7~12개월차: 추가 시장 확장(Lv.3) 및 무역로 개설')
+      await page.click('button.realm-tab-btn:has-text("시정과 산업")')
+      const mBtn2 = await page.$('.industry-card:has-text("시장") button')
+      if (mBtn2 && !(await mBtn2.isDisabled())) {
+        await mBtn2.click()
+        console.log('    ✓ 시장 추가 확장 단행 (Lv.3)')
+      }
+      await page.click('button.realm-tab-btn:has-text("영지 개요")')
+
+      for (let m = 0; m < 6; m++) {
+        await advanceOneMonth(page)
+        if (m === 1 || m === 3) {
           await page.click('button.realm-tab-btn:has-text("시정과 산업")')
-          const mBtn = await page.$('.industry-card:has-text("장터") button')
-          if (mBtn && !(await mBtn.isDisabled())) {
-            await mBtn.click()
-            console.log('    ✓ 시장 추가 확장 단행')
+          const mBtnMid = await page.$('.industry-card:has-text("시장") button:not(:disabled)')
+          if (mBtnMid) {
+            await mBtnMid.click()
+            console.log(`    ✓ [${m + 7}개월차] 시장 추가 확장 단행`)
           }
           await page.click('button.realm-tab-btn:has-text("영지 개요")')
         }
       }
 
-      const commTitle = await page.innerText('.panorama-realm-title')
-      const commTier = await page.innerText('.p-tier-badge')
-      const commSpec = await page.innerText('.p-spec-badge')
-      console.log(`  - 12개월 상업 실플레이 후: "${commTitle}" [${commTier} · ${commSpec}]`)
-      if (!commSpec.includes('상업')) throw new Error('상업 특화가 완성되지 않았습니다.')
+      const commTitle12m = await page.innerText('.panorama-realm-title')
+      const commTier12m = await page.innerText('.p-tier-badge')
+      const commSpec12m = await page.innerText('.p-spec-badge')
+      console.log(`  - 12개월 상업 실플레이 후: "${commTitle12m}" [${commTier12m} · ${commSpec12m}]`)
+      if (!commTier12m.includes('3단계')) {
+        throw new Error(`상업 투자 후 12개월 시점은 엄격히 제3단계(번영 중심도시)여야 합니다. 실제: ${commTier12m}`)
+      }
+      if (!commSpec12m.includes('상업')) throw new Error('상업 특화가 완성되지 않았습니다.')
 
       await page.locator('.living-realm-panorama-container').screenshot({
         path: path.join(screenshotDir, 'C_commercial_12m_t3_panorama.png'),
@@ -357,7 +402,7 @@ async function runBrowserVerification() {
     }
 
     // =================================================================
-    // Scenario 4: 실제 군사 경로 12개월 누적 플레이 (Military 12m T3)
+    // Scenario 4: 실제 군사 경로 12개월 누적 플레이 (0m -> 6m T2 -> 12m T3)
     // =================================================================
     console.log('\n-----------------------------------------------------------------')
     console.log('▶ [시나리오 4: 군사 경로 실제 사용자 조작 12개월 누적 플레이 (독립 Context)]')
@@ -372,58 +417,98 @@ async function runBrowserVerification() {
       await page.waitForSelector('.living-realm-panorama-container')
 
       // Step 4.1: Military Investments
-      console.log('  - 군사 집중 시정 지침, 방벽 축조, 제철소 확장')
+      console.log('  - 1~6개월차: 군사 집중 시정 지침, 방벽 축조, 제철소 확장')
       await page.click('button.realm-tab-btn:has-text("시정과 산업")')
       await page.waitForSelector('.civic-focus-card')
 
       await page.click('.civic-focus-card:has-text("방벽 수축") button')
       console.log('    ✓ 시정 지침 하달: 방벽 수축 및 민병 훈련')
 
-      // Upgrade Fortifications
+      // Upgrade Fortifications Lv.2
       const fortBtn = await page.$('.civic-building-card:has-text("외곽 방벽") .btn-upgrade-civic')
       if (fortBtn && !(await fortBtn.isDisabled())) {
         await fortBtn.click()
         console.log('    ✓ 도시 인프라 증축: 외곽 방벽')
       }
 
-      // Upgrade Ironworks
-      const ironBtn = await page.$('.industry-card:has-text("철광산") button')
+      // Upgrade Ironworks Lv.2
+      const ironBtn = await page.$('.industry-card:has-text("제철소") button')
       if (ironBtn && !(await ironBtn.isDisabled())) {
         await ironBtn.click()
-        console.log('    ✓ 기간 산업 확장: 철광산과 대장간')
+        console.log('    ✓ 기간 산업 확장: 제철소와 대장간')
       }
 
-      // Policy tab: Standing Guard
+      // Policy tab: Border Muster
       await page.click('button.realm-tab-btn:has-text("정책 의회")')
       await page.waitForSelector('.policy-node')
-      const milPolicyBtn = await page.$('.policy-node:has-text("상비 수비대") button:not(:disabled)')
-      if (milPolicyBtn) {
-        await milPolicyBtn.click()
-        console.log('    ✓ 정책 공포: 상비 수비대 창설')
+      const borderPolicyBtn = await page.$('.policy-node:has-text("변경 수비") button:not(:disabled)')
+      if (borderPolicyBtn) {
+        await borderPolicyBtn.click()
+        console.log('    ✓ 정책 공포: 국경 수비 징집령')
       }
 
       await page.click('button.realm-tab-btn:has-text("영지 개요")')
       await page.waitForSelector('.living-realm-panorama-container')
 
-      // Advance 12 months with military focus
-      for (let m = 0; m < 12; m++) {
+      // Advance to Month 6
+      for (let m = 0; m < 6; m++) {
         await advanceOneMonth(page)
-        if (m === 5) {
-          await page.click('button.realm-tab-btn:has-text("시정과 산업")')
-          const fBtn = await page.$('.civic-building-card:has-text("외곽 방벽") .btn-upgrade-civic')
-          if (fBtn && !(await fBtn.isDisabled())) {
-            await fBtn.click()
-            console.log('    ✓ 방벽 추가 증축 단행')
-          }
-          await page.click('button.realm-tab-btn:has-text("영지 개요")')
-        }
       }
 
-      const milTitle = await page.innerText('.panorama-realm-title')
-      const milTier = await page.innerText('.p-tier-badge')
-      const milSpec = await page.innerText('.p-spec-badge')
-      console.log(`  - 12개월 군사 실플레이 후: "${milTitle}" [${milTier} · ${milSpec}]`)
-      if (!milSpec.includes('군사') && !milSpec.includes('방벽')) {
+      // Capture Month 6 (T2 Military)
+      const milTitle6m = await page.innerText('.panorama-realm-title')
+      const milTier6m = await page.innerText('.p-tier-badge')
+      const milSpec6m = await page.innerText('.p-spec-badge')
+      console.log(`  - 6개월 군사 실플레이 후: "${milTitle6m}" [${milTier6m} · ${milSpec6m}]`)
+      if (!milTier6m.includes('2단계')) {
+        throw new Error(`군사 투자 후 6개월 시점은 엄격히 제2단계(발전 성읍)여야 합니다. 실제: ${milTier6m}`)
+      }
+
+      await page.locator('.living-realm-panorama-container').screenshot({
+        path: path.join(screenshotDir, 'D_military_6m_t2_panorama.png'),
+      })
+      console.log(`  ✓ 캡처 저장: D_military_6m_t2_panorama.png`)
+
+      await captureErdenMap(page, path.join(screenshotDir, 'D_military_6m_t2_map.png'))
+      console.log(`  ✓ 캡처 저장: D_military_6m_t2_map.png`)
+
+      // Step 4.2: Advance to Month 12 with military upgrades (Fortifications Lv 3 / Ironworks Lv 3)
+      console.log('  - 7~12개월차: 추가 방벽 축조, 제철소 확장, 상비군 훈련')
+      for (let m = 0; m < 6; m++) {
+        await advanceOneMonth(page)
+
+        // Check for civic / industry upgrades
+        await page.click('button.realm-tab-btn:has-text("시정과 산업")')
+        const fortUpgrade = await page.$('.civic-building-card:has-text("외곽 방벽") .btn-upgrade-civic:not(:disabled)')
+        if (fortUpgrade) {
+          await fortUpgrade.click()
+          console.log(`    ✓ [${m + 7}개월차] 외곽 방벽 추가 증축 단행`)
+        }
+        const ironUpgrade = await page.$('.industry-card:has-text("제철소") button:not(:disabled)')
+        if (ironUpgrade) {
+          await ironUpgrade.click()
+          console.log(`    ✓ [${m + 7}개월차] 제철소 추가 확장 단행`)
+        }
+
+        // Check for policy upgrade
+        await page.click('button.realm-tab-btn:has-text("정책 의회")')
+        const standingGuardBtn = await page.$('.policy-node:has-text("상비") button:not(:disabled)')
+        if (standingGuardBtn) {
+          await standingGuardBtn.click()
+          console.log(`    ✓ [${m + 7}개월차] 정책 공포: 상비 변경수비대`)
+        }
+
+        await page.click('button.realm-tab-btn:has-text("영지 개요")')
+      }
+
+      const milTitle12m = await page.innerText('.panorama-realm-title')
+      const milTier12m = await page.innerText('.p-tier-badge')
+      const milSpec12m = await page.innerText('.p-spec-badge')
+      console.log(`  - 12개월 군사 실플레이 후: "${milTitle12m}" [${milTier12m} · ${milSpec12m}]`)
+      if (!milTier12m.includes('3단계')) {
+        throw new Error(`군사 투자 후 12개월 시점은 엄격히 제3단계(번영 중심도시)여야 합니다. 실제: ${milTier12m}`)
+      }
+      if (!milSpec12m.includes('군사') && !milSpec12m.includes('방벽')) {
         throw new Error('군사 특화가 완성되지 않았습니다.')
       }
 
@@ -543,20 +628,44 @@ async function runBrowserVerification() {
       await page.reload()
       await page.waitForSelector('.living-realm-panorama-container')
 
+      // Above the fold first look on mobile (must show landscape viewport!)
       await page.screenshot({
         path: path.join(screenshotDir, 'M_mobile_390x844_panorama.png'),
       })
-      console.log(`  ✓ 캡처 저장: M_mobile_390x844_panorama.png`)
+      console.log(`  ✓ 캡처 저장: M_mobile_390x844_panorama.png (첫 화면/Above the fold)`)
+
+      // Scrolled view on mobile to show cards
+      await page.evaluate(() => window.scrollBy(0, 300))
+      await page.waitForTimeout(200)
+      await page.screenshot({
+        path: path.join(screenshotDir, 'M_mobile_390x844_panorama_scrolled.png'),
+      })
+      console.log(`  ✓ 캡처 저장: M_mobile_390x844_panorama_scrolled.png (스크롤 하단 카드)`)
 
       // Open Map View on Mobile
       await page.click('button.realm-map-link, button.btn-panorama-map')
       await page.waitForSelector('.world-canvas')
       await page.waitForTimeout(500)
 
+      // Focus Erden
+      const focusBtn = await page.$('.focus-btn')
+      if (focusBtn) {
+        await focusBtn.click()
+        await page.waitForTimeout(400)
+      }
+
       await page.screenshot({
         path: path.join(screenshotDir, 'M_mobile_390x844_map.png'),
       })
-      console.log(`  ✓ 캡처 저장: M_mobile_390x844_map.png`)
+      console.log(`  ✓ 캡처 저장: M_mobile_390x844_map.png (모바일 지도 상단)`)
+
+      // Scroll to view inspector and mini-diorama on mobile
+      await page.evaluate(() => window.scrollBy(0, 420))
+      await page.waitForTimeout(200)
+      await page.screenshot({
+        path: path.join(screenshotDir, 'M_mobile_390x844_map_inspector.png'),
+      })
+      console.log(`  ✓ 캡처 저장: M_mobile_390x844_map_inspector.png (모바일 디오라마 인스펙터)`)
 
       await context.close()
     }

@@ -102,17 +102,30 @@ export function analyzeRealmGrowth(state: RealmState): RealmVisualAnalysis {
   const policyCount = state.policies.length
   const totalInvestmentPoints = (buildingUpgrades * 14) + (policyCount * 12) + (activeTradeCount * 8)
 
-  // 2. Determine Tier (Must be earned by investments, not free time)
+  const maxScore = Math.max(agriScore, commScore, milScore)
+
+  // 2. Determine Tier (Must be earned by concrete physical investments, not free time)
+  const hasLevel3Structure =
+    farmsLvl >= 3 || marketLvl >= 3 || ironworksLvl >= 3 ||
+    granaryLvl >= 3 || fortLvl >= 3 || hallLvl >= 3 || resLvl >= 3
+
   let tier: GrowthTier = 1
-  if (totalInvestmentPoints >= 65 || (agriScore >= 55 || commScore >= 55 || milScore >= 55)) {
+  if (
+    (hasLevel3Structure && buildingUpgrades >= 2 && (totalInvestmentPoints >= 45 || maxScore >= 65)) ||
+    (totalInvestmentPoints >= 75 && buildingUpgrades >= 3)
+  ) {
     tier = 3
-  } else if (totalInvestmentPoints >= 25 || (agriScore >= 25 || commScore >= 25 || milScore >= 25)) {
+  } else if (
+    totalInvestmentPoints >= 18 ||
+    buildingUpgrades >= 1 ||
+    policyCount >= 1 ||
+    maxScore >= 25
+  ) {
     tier = 2
   }
 
   // 3. Determine Primary Specialization
   let specialization: RealmSpecialization = 'balanced'
-  const maxScore = Math.max(agriScore, commScore, milScore)
   if (maxScore >= 24) {
     if (agriScore === maxScore && agriScore >= commScore + 8 && agriScore >= milScore + 8) {
       specialization = 'agrarian'

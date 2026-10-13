@@ -70,65 +70,74 @@ export function drawPlayerFiefLivingLayer(
     if (features.hasGoldenFields || specialization === 'agrarian' || tier >= 2) {
       ctx.save()
       const fieldCount = tier >= 3 ? 9 : tier >= 2 ? 5 : 3
-      ctx.strokeStyle = specialization === 'agrarian' ? 'rgba(234, 179, 8, 0.85)' : 'rgba(132, 204, 22, 0.75)'
-      ctx.lineWidth = Math.max(2, 3 / zoom)
+      ctx.strokeStyle = specialization === 'agrarian' ? 'rgba(234, 179, 8, 0.92)' : 'rgba(132, 204, 22, 0.8)'
+      ctx.lineWidth = Math.max(2.5, 3.8 / zoom)
 
       // Broad terraced furrows across southwest quadrant
       for (let i = 0; i < fieldCount; i++) {
-        const fy = cy + 10 + i * 9
+        const fy = cy + 8 + i * 9
         ctx.beginPath()
-        ctx.moveTo(cx - 75, fy)
-        ctx.lineTo(cx - 15, fy)
+        ctx.moveTo(cx - 85, fy)
+        ctx.lineTo(cx - 20, fy)
         ctx.stroke()
       }
 
       // Windmill Landmark on farmland
-      if (features.hasWindmills || tier >= 2) {
-        const wx = cx - 50
+      if (tier >= 2) {
+        const wx = cx - 55
         const wy = cy + 28
         // Tower Body
         ctx.fillStyle = '#fef08a'
         ctx.beginPath()
-        ctx.moveTo(wx - 6 / zoom, wy + 8 / zoom)
-        ctx.lineTo(wx, wy - 10 / zoom)
-        ctx.lineTo(wx + 6 / zoom, wy + 8 / zoom)
+        ctx.moveTo(wx - 7 / zoom, wy + 9 / zoom)
+        ctx.lineTo(wx, wy - 12 / zoom)
+        ctx.lineTo(wx + 7 / zoom, wy + 9 / zoom)
         ctx.closePath()
         ctx.fill()
         ctx.strokeStyle = '#854d0e'
-        ctx.lineWidth = Math.max(1, 1.5 / zoom)
+        ctx.lineWidth = Math.max(1.2, 1.8 / zoom)
         ctx.stroke()
 
         // Blades
         ctx.strokeStyle = '#854d0e'
-        ctx.lineWidth = Math.max(1.5, 2 / zoom)
+        ctx.lineWidth = Math.max(1.8, 2.5 / zoom)
         ctx.beginPath()
-        ctx.moveTo(wx - 10 / zoom, wy - 10 / zoom)
-        ctx.lineTo(wx + 10 / zoom, wy - 10 / zoom)
-        ctx.moveTo(wx, wy - 20 / zoom)
+        ctx.moveTo(wx - 12 / zoom, wy - 12 / zoom)
+        ctx.lineTo(wx + 12 / zoom, wy - 12 / zoom)
+        ctx.moveTo(wx, wy - 24 / zoom)
         ctx.lineTo(wx, wy)
         ctx.stroke()
 
         // Second windmill if Tier 3
         if (tier >= 3) {
-          const w2x = cx - 25
-          const w2y = cy + 42
+          const w2x = cx - 28
+          const w2y = cy + 44
           ctx.fillStyle = '#ffffff'
           ctx.beginPath()
-          ctx.moveTo(w2x - 5 / zoom, w2y + 7 / zoom)
-          ctx.lineTo(w2x, w2y - 8 / zoom)
-          ctx.lineTo(w2x + 5 / zoom, w2y + 7 / zoom)
+          ctx.moveTo(w2x - 6 / zoom, w2y + 8 / zoom)
+          ctx.lineTo(w2x, w2y - 10 / zoom)
+          ctx.lineTo(w2x + 6 / zoom, w2y + 8 / zoom)
           ctx.closePath()
           ctx.fill()
-          ctx.strokeStyle = '#451a03'
+          ctx.strokeStyle = '#1e3a8a'
+          ctx.lineWidth = Math.max(1.2, 1.6 / zoom)
           ctx.stroke()
 
-          ctx.strokeStyle = '#451a03'
-          ctx.lineWidth = Math.max(1.2, 1.8 / zoom)
+          ctx.strokeStyle = '#1e3a8a'
+          ctx.lineWidth = Math.max(1.5, 2.2 / zoom)
           ctx.beginPath()
-          ctx.moveTo(w2x - 8 / zoom, w2y - 8 / zoom)
-          ctx.lineTo(w2x + 8 / zoom, w2y - 8 / zoom)
-          ctx.moveTo(w2x, w2y - 16 / zoom)
+          ctx.moveTo(w2x - 10 / zoom, w2y - 10 / zoom)
+          ctx.lineTo(w2x + 10 / zoom, w2y - 10 / zoom)
+          ctx.moveTo(w2x, w2y - 20 / zoom)
           ctx.lineTo(w2x, w2y)
+          ctx.stroke()
+
+          // Tier 3 Granary Silo
+          ctx.fillStyle = '#94a3b8'
+          ctx.beginPath()
+          ctx.rect(cx - 75, cy + 42, 16 / zoom, 16 / zoom)
+          ctx.fill()
+          ctx.strokeStyle = '#334155'
           ctx.stroke()
         }
       }
@@ -141,33 +150,33 @@ export function drawPlayerFiefLivingLayer(
     if (features.hasBustlingMarket || specialization === 'commercial' || tier >= 2) {
       ctx.save()
       // Broad radial paved highways from center to southeast
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.75)'
-      ctx.lineWidth = Math.max(3, 4.2 / zoom)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)'
+      ctx.lineWidth = Math.max(3.5, 4.8 / zoom)
       ctx.beginPath()
       ctx.moveTo(cx, cy)
-      ctx.lineTo(cx + 60, cy + 38)
+      ctx.lineTo(cx + 65, cy + 40)
       ctx.moveTo(cx, cy)
-      ctx.lineTo(cx + 50, cy - 30)
+      ctx.lineTo(cx + 55, cy - 28)
       ctx.stroke()
 
       // High-visibility Market Pavilion / Tents Cluster
       const tents = tier >= 3
         ? [
-            { x: cx + 24, y: cy + 16, color: '#ef4444', size: 8 },
-            { x: cx + 42, y: cy + 26, color: '#3b82f6', size: 9 },
-            { x: cx + 32, y: cy + 40, color: '#eab308', size: 8 },
-            { x: cx + 55, y: cy + 18, color: '#10b981', size: 8 },
-            { x: cx + 52, y: cy + 42, color: '#f97316', size: 7 },
+            { x: cx + 24, y: cy + 16, color: '#ef4444', size: 9 },
+            { x: cx + 44, y: cy + 26, color: '#3b82f6', size: 10 },
+            { x: cx + 32, y: cy + 42, color: '#eab308', size: 9 },
+            { x: cx + 58, y: cy + 18, color: '#10b981', size: 9 },
+            { x: cx + 54, y: cy + 44, color: '#f97316', size: 8 },
           ]
         : tier >= 2
         ? [
-            { x: cx + 28, y: cy + 20, color: '#ef4444', size: 7 },
-            { x: cx + 44, y: cy + 30, color: '#eab308', size: 7 },
+            { x: cx + 28, y: cy + 20, color: '#ef4444', size: 8 },
+            { x: cx + 46, y: cy + 32, color: '#eab308', size: 8 },
           ]
         : [{ x: cx + 30, y: cy + 22, color: '#f59e0b', size: 6 }]
 
       tents.forEach((t) => {
-        const s = Math.max(t.size, (t.size * 1.2) / zoom)
+        const s = Math.max(t.size, (t.size * 1.3) / zoom)
         ctx.fillStyle = t.color
         ctx.beginPath()
         ctx.moveTo(t.x, t.y - s)
@@ -176,7 +185,7 @@ export function drawPlayerFiefLivingLayer(
         ctx.closePath()
         ctx.fill()
         ctx.strokeStyle = '#0f172a'
-        ctx.lineWidth = Math.max(0.8, 1.2 / zoom)
+        ctx.lineWidth = Math.max(1, 1.4 / zoom)
         ctx.stroke()
       })
       ctx.restore()
@@ -187,9 +196,9 @@ export function drawPlayerFiefLivingLayer(
     // -----------------------------------------------------------------
     if (features.hasStoneWalls || specialization === 'military' || tier >= 2) {
       ctx.save()
-      const wallRadius = tier >= 3 ? 42 : tier >= 2 ? 32 : 22
+      const wallRadius = tier >= 3 ? 46 : tier >= 2 ? 34 : 24
       ctx.strokeStyle = specialization === 'military' ? '#0f172a' : '#334155'
-      ctx.lineWidth = Math.max(3.5, (tier >= 3 ? 5.5 : 4) / zoom)
+      ctx.lineWidth = Math.max(4, (tier >= 3 ? 6.5 : 4.5) / zoom)
 
       // Outer bastion curtain wall arc
       ctx.beginPath()
@@ -199,7 +208,7 @@ export function drawPlayerFiefLivingLayer(
       // Inner secondary wall for Tier 3
       if (tier >= 3) {
         ctx.strokeStyle = '#475569'
-        ctx.lineWidth = Math.max(2.5, 3.8 / zoom)
+        ctx.lineWidth = Math.max(3, 4.2 / zoom)
         ctx.beginPath()
         ctx.arc(cx, cy, wallRadius * 0.65, -Math.PI * 0.85, Math.PI * 0.15)
         ctx.stroke()
@@ -214,10 +223,10 @@ export function drawPlayerFiefLivingLayer(
 
         ctx.fillStyle = '#0f172a'
         ctx.beginPath()
-        ctx.arc(tx, ty, Math.max(4, 6 / zoom), 0, Math.PI * 2)
+        ctx.arc(tx, ty, Math.max(4.5, 7 / zoom), 0, Math.PI * 2)
         ctx.fill()
         ctx.strokeStyle = '#cbd5e1'
-        ctx.lineWidth = Math.max(1, 1.5 / zoom)
+        ctx.lineWidth = Math.max(1.2, 1.8 / zoom)
         ctx.stroke()
       }
 
@@ -225,8 +234,8 @@ export function drawPlayerFiefLivingLayer(
       if (specialization === 'military' || tier >= 3) {
         ctx.fillStyle = '#dc2626'
         ctx.beginPath()
-        ctx.moveTo(cx - 20, cy - wallRadius - Math.max(8, 12 / zoom))
-        ctx.lineTo(cx - 6, cy - wallRadius - Math.max(5, 7 / zoom))
+        ctx.moveTo(cx - 20, cy - wallRadius - Math.max(9, 14 / zoom))
+        ctx.lineTo(cx - 4, cy - wallRadius - Math.max(6, 8 / zoom))
         ctx.lineTo(cx - 20, cy - wallRadius)
         ctx.closePath()
         ctx.fill()
@@ -272,8 +281,8 @@ export function drawPlayerFiefLivingLayer(
   // 2. Central Citadel / Keep Landmark Structure
   // ===================================================================
   ctx.save()
-  const keepSize = Math.max(14, (tier === 3 ? 24 : tier === 2 ? 18 : 13) / zoom)
-  const keepY = cy - 4
+  const keepSize = Math.max(16, (tier === 3 ? 28 : tier === 2 ? 20 : 14) / zoom)
+  const keepY = cy - 2
 
   // Keep Base Shadow / Moat Ring
   ctx.beginPath()
@@ -284,7 +293,7 @@ export function drawPlayerFiefLivingLayer(
   // Keep Main Structure Block
   ctx.fillStyle = tier === 3 ? '#0f172a' : tier === 2 ? '#334155' : '#78350f'
   ctx.strokeStyle = tier === 3 ? '#fbbf24' : tier === 2 ? '#f8fafc' : '#d97706'
-  ctx.lineWidth = Math.max(2, (tier === 3 ? 3.5 : 2.4) / zoom)
+  ctx.lineWidth = Math.max(2.2, (tier === 3 ? 3.8 : 2.5) / zoom)
   ctx.beginPath()
   ctx.rect(cx - keepSize / 2, keepY - keepSize / 2, keepSize, keepSize)
   ctx.fill()
@@ -301,7 +310,7 @@ export function drawPlayerFiefLivingLayer(
       : '#0284c7'
   ctx.beginPath()
   ctx.moveTo(cx - keepSize * 0.7, keepY - keepSize / 2)
-  ctx.lineTo(cx, keepY - keepSize * 1.25)
+  ctx.lineTo(cx, keepY - keepSize * 1.3)
   ctx.lineTo(cx + keepSize * 0.7, keepY - keepSize / 2)
   ctx.closePath()
   ctx.fill()
@@ -312,18 +321,20 @@ export function drawPlayerFiefLivingLayer(
   ctx.restore()
 
   // ===================================================================
-  // 3. Prominent Emblem Badge & Status Halo (Highly Legible across Map)
+  // 3. Clear Bounding-Box Status Banner (Positioned Above Fief Polygon)
+  //    Leaves internal districts 100% visible and unoccluded!
   // ===================================================================
   ctx.save()
-  const badgeY = cy - Math.max(28, (zoom < 0.65 ? 32 : 40) / zoom)
-  const badgeRadius = Math.max(13, Math.min(26, 17 / zoom))
+  const minY = Math.min(...playerFief.vertices.map((v) => v[1]))
+  const bannerY = minY - Math.max(16, 22 / zoom)
+  const badgeRadius = Math.max(12, Math.min(22, 15 / zoom))
 
   // Halo Ring based on Tier & Distress
   ctx.beginPath()
-  ctx.arc(cx, badgeY, badgeRadius + 5 / zoom, 0, Math.PI * 2)
+  ctx.arc(cx, bannerY, badgeRadius + 4 / zoom, 0, Math.PI * 2)
   ctx.fillStyle =
     distress !== 'normal'
-      ? 'rgba(239, 68, 68, 0.35)'
+      ? 'rgba(239, 68, 68, 0.4)'
       : tier === 3
       ? 'rgba(251, 191, 36, 0.45)'
       : tier === 2
@@ -333,34 +344,36 @@ export function drawPlayerFiefLivingLayer(
 
   // Emblem Circle
   ctx.beginPath()
-  ctx.arc(cx, badgeY, badgeRadius, 0, Math.PI * 2)
+  ctx.arc(cx, bannerY, badgeRadius, 0, Math.PI * 2)
   ctx.fillStyle = '#0f172a'
   ctx.fill()
   ctx.strokeStyle = distress !== 'normal' ? '#ef4444' : analysis.specColor
-  ctx.lineWidth = Math.max(2.2, (tier === 3 ? 3.8 : 2.5) / zoom)
+  ctx.lineWidth = Math.max(2, (tier === 3 ? 3.5 : 2.4) / zoom)
   ctx.stroke()
 
   // Emblem Icon
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const iconSize = Math.max(13, Math.min(24, 18 / zoom))
+  const iconSize = Math.max(12, Math.min(20, 16 / zoom))
   ctx.font = `${iconSize}px ${FONT_STACK}`
   const displayIcon = distress === 'critical' ? '🔥' : distress === 'distressed' ? '⚠️' : analysis.specIcon
-  ctx.fillText(displayIcon, cx, badgeY + 1 / zoom)
+  ctx.fillText(displayIcon, cx, bannerY + 1 / zoom)
 
-  // Growth Stage Text Label below Badge (Always crisp with dark stroke)
-  const fontSize = Math.max(11, Math.min(18, 14 / zoom))
+  // Growth Stage Text Label (Positioned cleanly above emblem)
+  const fontSize = Math.max(10, Math.min(16, 13 / zoom))
   ctx.font = `900 ${fontSize}px ${FONT_STACK}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.strokeStyle = 'rgba(15, 23, 42, 0.98)'
-  ctx.lineWidth = Math.max(3, 4.2 / zoom)
+  ctx.lineWidth = Math.max(2.8, 3.8 / zoom)
   ctx.fillStyle = distress !== 'normal' ? '#fca5a5' : '#fef08a'
 
   const tierText = `★ 에르덴 [T${tier}·${analysis.specLabel.split(' ')[0]}]`
-  const textY = badgeY + badgeRadius + Math.max(11, 14 / zoom)
+  const textY = bannerY - badgeRadius - Math.max(6, 8 / zoom)
   ctx.strokeText(tierText, cx, textY)
   ctx.fillText(tierText, cx, textY)
+
+  ctx.restore()
 
   ctx.restore()
 

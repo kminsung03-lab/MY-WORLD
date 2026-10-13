@@ -387,19 +387,24 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
       const midX = (p0[0] + p1[0]) / 2 + nx * curveOffset
       const midY = (p0[1] + p1[1]) / 2 + ny * curveOffset
 
+      const routeAngle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0])
+      const startOffset = 50
+      const startX = p0[0] + Math.cos(routeAngle) * startOffset
+      const startY = p0[1] + Math.sin(routeAngle) * startOffset
+
       ctx.save()
 
       if (isSuspended) {
         // Muted gray/amber style for suspended route
         ctx.beginPath()
-        ctx.moveTo(p0[0], p0[1])
+        ctx.moveTo(startX, startY)
         ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)'
         ctx.lineWidth = 4 / zoom
         ctx.stroke()
 
         ctx.beginPath()
-        ctx.moveTo(p0[0], p0[1])
+        ctx.moveTo(startX, startY)
         ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
         ctx.setLineDash([4 / zoom, 6 / zoom])
         ctx.strokeStyle = '#94a3b8'
@@ -409,7 +414,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
       } else {
         // Soft ambient glow under the trade route
         ctx.beginPath()
-        ctx.moveTo(p0[0], p0[1])
+        ctx.moveTo(startX, startY)
         ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
         ctx.strokeStyle = 'rgba(251, 191, 36, 0.28)'
         ctx.lineWidth = 5.5 / zoom
@@ -417,7 +422,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
 
         // Dashed golden active trade line
         ctx.beginPath()
-        ctx.moveTo(p0[0], p0[1])
+        ctx.moveTo(startX, startY)
         ctx.quadraticCurveTo(midX, midY, p1[0], p1[1])
         ctx.setLineDash([8 / zoom, 5 / zoom])
         ctx.strokeStyle = '#f59e0b'
@@ -444,7 +449,8 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
       ctx.font = `${Math.max(10, Math.min(18, 13 / zoom))}px ${FONT_STACK}`
       ctx.fillText(isSuspended ? '⚠️' : contractDef.icon, iconX, iconY + 1 / zoom)
 
-      if (zoom >= 0.52) {
+      // Only show full verbose label when sufficiently zoomed in, avoiding macro map clutter
+      if (zoom >= 0.82) {
         ctx.font = `700 ${Math.max(9, Math.min(14, 10 / zoom))}px ${FONT_STACK}`
         ctx.fillStyle = isSuspended ? '#fca5a5' : '#fde68a'
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)'
