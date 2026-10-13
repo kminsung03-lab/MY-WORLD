@@ -69,7 +69,10 @@ export function checkAndMigrateLegacySave(current: RealmState): RealmState {
     if (isAlreadyMigrated) return current
 
     const legacyRaw = localStorage.getItem('my_world_game_save_v2') || localStorage.getItem('my_world_game_save_v1')
-    if (!legacyRaw) return current
+    if (!legacyRaw) {
+      localStorage.setItem('my_world_legacy_migrated_v3', 'true')
+      return current
+    }
 
     const legacy = JSON.parse(legacyRaw)
     const next = structuredClone(current)
@@ -1814,6 +1817,9 @@ export function useRealmState() {
   const resetRealm = () => {
     if (!window.confirm('영지 경영 진행도를 처음부터 다시 시작하시겠습니까?')) return
     localStorage.removeItem(SAVE_KEY)
+    localStorage.removeItem('my_world_game_save_v2')
+    localStorage.removeItem('my_world_game_save_v1')
+    localStorage.setItem('my_world_legacy_migrated_v3', 'true')
     setState(cloneInitialState())
   }
 

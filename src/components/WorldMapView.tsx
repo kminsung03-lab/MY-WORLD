@@ -9,6 +9,9 @@ import {
   VASSAL_PROFILES,
   calculateArmyPower,
 } from '../constants/realmData'
+import {
+  CIVIC_FOCUS_DEFINITIONS,
+} from '../constants/fieldQuestData'
 import type { GameState } from '../types/game'
 import type { Nation, Province } from '../types/worldMap'
 import {
@@ -28,7 +31,7 @@ import {
 import type { RealmHandle } from '../hooks/useRealmState'
 
 interface WorldMapViewProps {
-  gameState: GameState
+  gameState?: GameState
   realm: RealmHandle
   onReturnToTown: () => void
 }
@@ -49,7 +52,7 @@ function findProvinceAt(x: number, y: number) {
   ) || null
 }
 
-export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, onReturnToTown }) => {
+export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTown }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const dragMovedRef = useRef(false)
@@ -592,7 +595,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
     })
 
     ctx.restore()
-  }, [canvasSize, gameState, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds, activeCampaign, campaignTargetProvince])
+  }, [canvasSize, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds, activeCampaign, campaignTargetProvince])
 
 
   const focusNation = (nation: Nation) => {
@@ -615,6 +618,9 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
           </div>
         </div>
         <div className="map-controls">
+          <div className="map-date-badge" style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: '6px', padding: '5px 12px', fontSize: '13px', color: '#f8fafc', fontWeight: 700 }}>
+            <span>왕력 {realmState.year}년 {realmState.month}월</span>
+          </div>
           <button className="btn-map-control btn-return-realm" onClick={onReturnToTown}>👑 영지 경영으로 복귀</button>
           <button className="btn-map-control focus-btn" onClick={() => centerOnPoint(playerFief.center[0], playerFief.center[1])}>🎯 내 영지</button>
           <button className="btn-map-control" onClick={() => setZoom((value) => Math.min(2.6, value * 1.2))}>＋ 확대</button>
@@ -757,7 +763,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ gameState, realm, on
 
 
                 <div className="player-local-summary">
-                  <span>마을 개척: 영토 {gameState.territory.secured}부지 · 방벽 Lv.{gameState.buildings.wall?.level || 0}</span>
+                  <span>중앙 관저 Lv.{realmState.civicBuildings?.townHall?.level || 1} · 방벽 Lv.{realmState.civicBuildings?.fortifications?.level || 1} · 시정: {CIVIC_FOCUS_DEFINITIONS[realmState.civicFocus || 'balanced']?.name || '균형 시정'}</span>
                 </div>
 
                 <button className="btn-manage-town" onClick={onReturnToTown}>

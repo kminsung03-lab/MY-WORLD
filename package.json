@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "verify": "tsx scripts/verify-milestone10.ts",
+    "verify:milestone10": "tsx scripts/verify-milestone10.ts",
+    "verify:browser": "tsx scripts/verify-browser-milestone10.ts",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
   },
@@ -21,6 +24,8 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "playwright": "^1.64.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "wrangler": "^4.147.0"

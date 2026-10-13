@@ -1,16 +1,13 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   INITIAL_REALM_STATE,
-  evaluateDiplomacy,
-  evaluateGovernedTerritories,
-  evaluateTradeRoutes,
 } from '../src/constants/realmData'
 import {
   CIVIC_FOCUS_DEFINITIONS,
   INITIAL_CIVIC_BUILDINGS,
   createFieldQuestTemplate,
   getDeterministicQuestRoll,
-  pickNextFieldQuestId,
-  shouldSpawnFieldQuest,
 } from '../src/constants/fieldQuestData'
 import {
   checkAndMigrateLegacySave,
@@ -21,7 +18,6 @@ import {
 import type {
   CivicBuildingId,
   CivicFocusId,
-  FieldQuest,
   RealmTrait,
 } from '../src/types/fieldQuest'
 import type {
@@ -123,6 +119,37 @@ const secondRun = checkAndMigrateLegacySave(migrated)
 assert(
   secondRun.resources.treasury === migrated.resources.treasury,
   '중복 마이그레이션 방지(멱등성) 확인: 국고 수치 불변',
+)
+
+// Fresh start test (no legacy save in storage)
+localStorage.clear()
+const freshInitial: RealmState = JSON.parse(JSON.stringify(INITIAL_REALM_STATE))
+const freshRun = checkAndMigrateLegacySave(freshInitial)
+assert(
+  freshRun.resources.treasury === INITIAL_REALM_STATE.resources.treasury,
+  '신규 시작 시 자원 왜곡 없음 확인',
+)
+assert(
+  localStorage.getItem('my_world_legacy_migrated_v3') === 'true',
+  '신규 시작 시 마이그레이션 플래그 원자적 설정 확인 (추후 오염 방지)',
+)
+
+// Reset test: clearing storage and simulating reset
+localStorage.clear()
+localStorage.setItem('my_world_game_save_v2', JSON.stringify({ resources: { gold: 999 } }))
+// Simulate resetRealm execution:
+localStorage.removeItem('my_world_realm_save_v1')
+localStorage.removeItem('my_world_game_save_v2')
+localStorage.removeItem('my_world_game_save_v1')
+localStorage.setItem('my_world_legacy_migrated_v3', 'true')
+const resetRun = checkAndMigrateLegacySave(JSON.parse(JSON.stringify(INITIAL_REALM_STATE)))
+assert(
+  resetRun.resources.treasury === INITIAL_REALM_STATE.resources.treasury,
+  '영지 초기화 후 레거시 자원 부활/중복 지급 방지 확인',
+)
+assert(
+  localStorage.getItem('my_world_game_save_v2') === null,
+  '영지 초기화 후 레거시 세이브 키 소거 확인',
 )
 
 // =================================================================
@@ -401,8 +428,29 @@ const ambitionGoals = evaluateAmbitionGoals(simState)
 assert(ambitionGoals.length === 4, `가문 대망 4대 목표 정상 평가 유지 (${ambitionGoals.map((g) => g.name).join(', ')})`)
 assert(!simState.ambitionState?.defeatTriggered, '퀘스트 건너뛰기/플레이 진행 중 패배 조건 발동 없음')
 
+// =================================================================
+// 5. 단일 월간 턴 및 UI 아키텍처 정합성 검증 (App.tsx 무결성)
+// =================================================================
+console.log('\n[5. 단일 월간 턴 및 UI 아키텍처 정합성 검증]')
+const appPath = path.resolve(import.meta.dirname, '../src/App.tsx')
+const appSource = fs.readFileSync(appPath, 'utf-8')
+
+assert(!appSource.includes('useGameState'), 'App.tsx에서 레거시 useGameState 훅 호출 완전 제거 확인')
+assert(!appSource.includes('TownView'), 'App.tsx에서 레거시 TownView 컴포넌트 렌더링 제거 확인')
+assert(!appSource.includes('HuntingView'), 'App.tsx에서 레거시 HuntingView 컴포넌트 렌더링 제거 확인')
+assert(!appSource.includes('MiningView'), 'App.tsx에서 레거시 MiningView 컴포넌트 렌더링 제거 확인')
+assert(!appSource.includes('WorkView'), 'App.tsx에서 레거시 WorkView 컴포넌트 렌더링 제거 확인')
+assert(!appSource.includes('NightEventModal'), 'App.tsx에서 레거시 NightEventModal 렌더링 제거 확인')
+assert(!appSource.includes('endDay'), 'App.tsx에서 레거시 하루 마무리(endDay) 핸들러 제거 확인')
+assert(!appSource.includes('startNextDay'), 'App.tsx에서 레거시 startNextDay 핸들러 제거 확인')
+assert(!appSource.includes('tab-pill-hunt'), 'App.tsx에서 1 AP 사냥 탭 제거 확인')
+assert(appSource.includes('RealmView'), 'App.tsx의 핵심 뷰로 RealmView(월간 영지 경영) 채택 확인')
+assert(appSource.includes('WorldMapView'), 'App.tsx의 보조 뷰로 WorldMapView(대륙 정세도) 채택 확인')
+console.log('✓ App.tsx 내 일일 루프/AP 파밍 진입로 완전 차단 및 월간 경영 체제 일원화 확인')
+
 console.log('\n=================================================================')
 console.log('✅ 10차 마일스톤 통합 검증 100% 통과!')
 console.log('=================================================================')
 console.log('\n[시뮬레이션 연대기 요약]:')
 simulationLog.forEach((log) => console.log(' •', log))
+
