@@ -23,6 +23,7 @@ import {
 } from '../constants/fieldQuestData'
 import type { CivicBuildingId, CivicFocusId } from '../types/fieldQuest'
 import type { RealmHandle } from '../hooks/useRealmState'
+import { LivingRealmPanorama } from './LivingRealmPanorama'
 import type {
   AmbitionVictoryId,
   DiplomaticStage,
@@ -270,6 +271,8 @@ export function RealmView({ realm, onOpenMap, onOpenLocal: _onOpenLocal }: Realm
 
       {tab === 'overview' && (
         <div className="realm-content realm-overview-grid">
+          <LivingRealmPanorama state={state} onOpenMap={onOpenMap} />
+
           {state.realmTraits && state.realmTraits.length > 0 && (
             <div className="realm-traits-banner">
               <span className="traits-label">✨ 영지 활성 특성:</span>

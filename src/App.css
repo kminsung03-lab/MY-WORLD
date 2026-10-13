@@ -6054,4 +6054,562 @@ body {
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   MY-WORLD 11차 마일스톤: '살아 있는 영지' (Living Realm) 비주얼 시스템
+   ========================================================================== */
+
+/* 1. 지도 인스펙터 내 살아 있는 영지 요약 카드 */
+.living-realm-summary-card {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.living-realm-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.living-tier-badge {
+  background: #1e293b;
+  border: 1px solid #fbbf24;
+  color: #fef08a;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.living-spec-badge {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.living-distress-badge {
+  background: rgba(185, 28, 28, 0.25);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  animation: pulse-border 2s infinite;
+}
+
+.living-fief-subheading {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 4px 0;
+}
+
+.living-fief-summary-p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin: 0 0 10px 0;
+}
+
+.living-milestone-box {
+  background: rgba(15, 23, 42, 0.6);
+  border-left: 3px solid #f59e0b;
+  padding: 7px 10px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 6px;
+}
+
+.living-milestone-box.target-box {
+  border-left-color: #38bdf8;
+}
+
+.milestone-label-row {
+  display: flex;
+  margin-bottom: 3px;
+}
+
+.milestone-tag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.milestone-tag.tag-recent {
+  color: #fbbf24;
+}
+
+.milestone-tag.tag-target {
+  color: #38bdf8;
+}
+
+.milestone-text {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.living-sectors-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.sector-gauge-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sector-gauge-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.sector-gauge-header strong {
+  color: #f8fafc;
+}
+
+.sector-track {
+  height: 6px;
+  background: rgba(30, 41, 59, 0.9);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sector-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.sector-fill.fill-agri { background: #22c55e; }
+.sector-fill.fill-comm { background: #eab308; }
+.sector-fill.fill-mil  { background: #ef4444; }
+
+
+/* 2. 영지 경영 첫 화면 (Living Realm Panorama) */
+.living-realm-panorama-container {
+  grid-column: 1 / -1;
+  background: #0f172a;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.panorama-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.panorama-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panorama-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fbbf24;
+  text-transform: uppercase;
+}
+
+.panorama-realm-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.panorama-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.p-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.p-tier-badge {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid #fbbf24;
+  color: #fef08a;
+}
+
+.p-spec-badge {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid currentColor;
+}
+
+.p-distress-badge.distress-critical {
+  background: rgba(185, 28, 28, 0.4);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  animation: pulse-border 1.5s infinite;
+}
+
+.p-distress-badge.distress-distressed {
+  background: rgba(217, 119, 6, 0.3);
+  border: 1px solid #f59e0b;
+  color: #fde68a;
+}
+
+.btn-panorama-map {
+  background: #0284c7;
+  color: #ffffff;
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-panorama-map:hover {
+  background: #0369a1;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+/* Panorama Visual Viewport */
+.panorama-canvas-viewport {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.panorama-skyline-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.panorama-interactive-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 28% 26% 23% 23%;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.district-visual-sector {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  backdrop-filter: blur(4px);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.district-visual-sector:hover {
+  transform: translateY(-2px);
+  border-color: rgba(251, 191, 36, 0.6);
+}
+
+.district-visual-sector.is-focus {
+  border-color: #fbbf24;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.2);
+}
+
+.sector-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 3px;
+  margin-bottom: 6px;
+}
+
+/* Sector Visual Items */
+.agri-visual-items,
+.keep-visual-items,
+.comm-visual-items,
+.mil-visual-items {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.visual-field-furrows {
+  height: 14px;
+  background: repeating-linear-gradient(45deg, #4d7c0f, #4d7c0f 5px, #365314 5px, #365314 10px);
+  border-radius: 4px;
+}
+
+.visual-field-furrows.golden {
+  background: repeating-linear-gradient(45deg, #ca8a04, #ca8a04 5px, #854d0e 5px, #854d0e 10px);
+}
+
+.visual-field-furrows.expanded {
+  height: 20px;
+}
+
+.visual-granary,
+.visual-windmill,
+.visual-citadel,
+.visual-market-stalls,
+.visual-caravan,
+.visual-walls,
+.visual-garrison {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.citadel-spires {
+  display: flex;
+  gap: 4px;
+  font-size: 18px;
+}
+
+.citadel-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.citadel-body strong {
+  font-size: 13px;
+  color: #fef08a;
+}
+
+.citadel-body small {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.stall {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.stall-red { background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #fca5a5; }
+.stall-blue { background: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6; color: #93c5fd; }
+.stall-gold { background: rgba(234, 179, 8, 0.25); border: 1px solid #eab308; color: #fde047; }
+.stall-simple { background: rgba(148, 163, 184, 0.2); border: 1px solid #64748b; color: #cbd5e1; }
+
+.visual-walls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wall-icon {
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.tower-icon {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+/* Distress Overlay in Panorama */
+.panorama-distress-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px;
+}
+
+.smoke-plume {
+  font-size: 26px;
+  position: absolute;
+  animation: float-smoke 3s infinite ease-in-out;
+  opacity: 0.7;
+}
+
+.plume-1 { left: 15%; top: 40%; animation-delay: 0s; }
+.plume-2 { right: 25%; top: 30%; animation-delay: 1.2s; }
+.plume-3 { left: 45%; top: 25%; animation-delay: 0.6s; }
+
+.distress-alarm-strip {
+  align-self: center;
+  background: rgba(185, 28, 28, 0.9);
+  color: #ffffff;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+}
+
+@keyframes float-smoke {
+  0% { transform: translateY(0) scale(0.9); opacity: 0.4; }
+  50% { transform: translateY(-16px) scale(1.15); opacity: 0.8; }
+  100% { transform: translateY(-32px) scale(1.3); opacity: 0; }
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+/* Panorama Footer Grid */
+.panorama-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.98);
+}
+
+.p-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  padding: 9px 12px;
+}
+
+.p-card .card-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.p-card .card-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.p-card .milestone-highlight {
+  color: #fef08a;
+  font-weight: 600;
+}
+
+.p-card .target-highlight {
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+.investment-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.inv-row {
+  display: grid;
+  grid-template-columns: 75px 1fr 30px;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.inv-row strong {
+  text-align: right;
+  color: #f8fafc;
+}
+
+.inv-row .bar-bg {
+  height: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.inv-row .bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.inv-row .bar-fill.agri { background: #22c55e; }
+.inv-row .bar-fill.comm { background: #eab308; }
+.inv-row .bar-fill.mil  { background: #ef4444; }
+
+/* Responsive adjustments for mobile and tablets */
+@media (max-width: 960px) {
+  .panorama-interactive-stage {
+    grid-template-columns: 1fr 1fr;
+    height: auto;
+    position: relative;
+    padding-top: 80px;
+  }
+  .panorama-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .panorama-interactive-stage {
+    grid-template-columns: 1fr;
+  }
+  .panorama-footer-grid {
+    grid-template-columns: 1fr;
+  }
+  .living-sectors-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 

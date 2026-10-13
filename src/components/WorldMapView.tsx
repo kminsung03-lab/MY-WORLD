@@ -29,6 +29,8 @@ import {
   isPointInPolygon,
 } from '../constants/worldData'
 import type { RealmHandle } from '../hooks/useRealmState'
+import { analyzeRealmGrowth } from '../utils/realmGrowthVisuals'
+import { drawPlayerFiefLivingLayer } from '../utils/fiefCanvasRenderer'
 
 interface WorldMapViewProps {
   gameState?: GameState
@@ -67,6 +69,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
   const selectedNation = NATIONS[selectedProvince.nationId]
 
   const { state: realmState, monthlyProjection } = realm
+  const growthAnalysis = useMemo(() => analyzeRealmGrowth(realmState), [realmState])
   const armyPower = useMemo(
     () => calculateArmyPower(realmState.soldiers, realmState.levies, realmState.policies.includes('standing_guard')),
     [realmState.soldiers, realmState.levies, realmState.policies],
@@ -560,24 +563,28 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
     // Province labels progressively reveal as the player zooms in.
     if (zoom >= 0.68) {
       PROVINCES.forEach((province, index) => {
-        if (!province.isPlayerFief && zoom < 1.25 && index % 5 !== 0) return
+        if (province.isPlayerFief) return // Rendered dynamically with living growth layer below
+        if (zoom < 1.25 && index % 5 !== 0) return
         ctx.save()
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.font = `${province.isPlayerFief ? 800 : 650} ${province.isPlayerFief ? 16 : 11}px ${FONT_STACK}`
+        ctx.font = `650 11px ${FONT_STACK}`
         ctx.fillStyle = '#111827'
         ctx.strokeStyle = 'rgba(255,255,255,.7)'
-        ctx.lineWidth = province.isPlayerFief ? 3.6 : 2.6
+        ctx.lineWidth = 2.6
         const isAnnexed = annexedProvinceIds.has(province.id)
-        const label = province.isPlayerFief ? '★ MY-WORLD' : isAnnexed ? `🚩 ${province.name}` : province.name
+        const label = isAnnexed ? `🚩 ${province.name}` : province.name
         ctx.strokeText(label, province.center[0], province.center[1] - 7)
         ctx.fillText(label, province.center[0], province.center[1] - 7)
-        ctx.font = `700 ${province.isPlayerFief ? 13 : 10}px ${FONT_STACK}`
+        ctx.font = `700 10px ${FONT_STACK}`
         ctx.strokeText(province.troops, province.center[0], province.center[1] + 10)
         ctx.fillText(province.troops, province.center[0], province.center[1] + 10)
         ctx.restore()
       })
     }
+
+    // Living Realm Layer for Player's Capital Fief (Erden)
+    drawPlayerFiefLivingLayer(ctx, playerFief, growthAnalysis, zoom)
 
     // Selection and player borders are always last, so they never disappear into the atlas.
     ;[selectedProvince, playerFief].forEach((province) => {
@@ -595,7 +602,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
     })
 
     ctx.restore()
-  }, [canvasSize, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds, activeCampaign, campaignTargetProvince])
+  }, [canvasSize, hoveredProvince, pan, playerFief, selectedProvince, zoom, realmState, activeTradeRoutes, annexedProvinces, annexedProvinceIds, activeCampaign, campaignTargetProvince, growthAnalysis])
 
 
   const focusNation = (nation: Nation) => {
@@ -647,8 +654,20 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
           <div className="map-overlay-hint">휠 확대 · 드래그 이동 · 영지 클릭</div>
           {hoveredProvince && (
             <div className="map-hover-chip">
-              <b>{annexedProvinceIds.has(hoveredProvince.id) ? '🚩 [병합령]' : NATIONS[hoveredProvince.nationId].emblem} {hoveredProvince.name}</b>
-              <span>{hoveredProvince.troops} · {annexedProvinceIds.has(hoveredProvince.id) ? '에르덴 통치령' : NATIONS[hoveredProvince.nationId].name}</span>
+              {hoveredProvince.isPlayerFief ? (
+                <>
+                  <b>★ 에르덴 본령 [{growthAnalysis.tierTitle}]</b>
+                  <span>
+                    {growthAnalysis.specIcon} {growthAnalysis.specLabel} · {growthAnalysis.tierLabel}
+                    {growthAnalysis.distress !== 'normal' && ` · ⚠️ ${growthAnalysis.distressReason}`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <b>{annexedProvinceIds.has(hoveredProvince.id) ? '🚩 [병합령]' : NATIONS[hoveredProvince.nationId].emblem} {hoveredProvince.name}</b>
+                  <span>{hoveredProvince.troops} · {annexedProvinceIds.has(hoveredProvince.id) ? '에르덴 통치령' : NATIONS[hoveredProvince.nationId].name}</span>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -699,8 +718,73 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
             {selectedProvince.isPlayerFief && (
               <div className="player-live-box">
                 <div className="player-live-top-row">
-                  <h4>👑 MY-WORLD 통치령 현황</h4>
+                  <h4>👑 에르덴 본령 · 살아 있는 영지</h4>
                   <span className="player-live-date">{realmState.year}년 {realmState.month}월</span>
+                </div>
+
+                {/* Living Realm Growth Card */}
+                <div className="living-realm-summary-card">
+                  <div className="living-realm-badge-row">
+                    <span className="living-tier-badge">
+                      🏆 {growthAnalysis.tierLabel}
+                    </span>
+                    <span className="living-spec-badge" style={{ borderColor: growthAnalysis.specColor, color: growthAnalysis.specColor }}>
+                      {growthAnalysis.specIcon} {growthAnalysis.specLabel}
+                    </span>
+                    {growthAnalysis.distress !== 'normal' && (
+                      <span className="living-distress-badge">
+                        {growthAnalysis.distress === 'critical' ? '🔥 심각한 전란/붕괴' : '⚠️ 경계/불안정'}
+                      </span>
+                    )}
+                  </div>
+
+                  <h5 className="living-fief-subheading">{growthAnalysis.tierTitle}</h5>
+                  <p className="living-fief-summary-p">{growthAnalysis.summaryPhrase}</p>
+
+                  <div className="living-milestone-box">
+                    <div className="milestone-label-row">
+                      <span className="milestone-tag tag-recent">최근 주요 변화의 원인</span>
+                    </div>
+                    <p className="milestone-text">{growthAnalysis.recentMilestone}</p>
+                  </div>
+
+                  <div className="living-milestone-box target-box">
+                    <div className="milestone-label-row">
+                      <span className="milestone-tag tag-target">다음 성장 과업 (Next Goal)</span>
+                    </div>
+                    <p className="milestone-text">{growthAnalysis.nextGoal}</p>
+                  </div>
+
+                  {/* 3-Sector Investment Progress Bars */}
+                  <div className="living-sectors-grid">
+                    <div className="sector-gauge-col">
+                      <div className="sector-gauge-header">
+                        <span>🌾 농업·곡창</span>
+                        <strong>{growthAnalysis.agriScore}%</strong>
+                      </div>
+                      <div className="sector-track">
+                        <div className="sector-fill fill-agri" style={{ width: `${growthAnalysis.agriScore}%` }} />
+                      </div>
+                    </div>
+                    <div className="sector-gauge-col">
+                      <div className="sector-gauge-header">
+                        <span>🪙 상업·무역</span>
+                        <strong>{growthAnalysis.commScore}%</strong>
+                      </div>
+                      <div className="sector-track">
+                        <div className="sector-fill fill-comm" style={{ width: `${growthAnalysis.commScore}%` }} />
+                      </div>
+                    </div>
+                    <div className="sector-gauge-col">
+                      <div className="sector-gauge-header">
+                        <span>🛡️ 방벽·군사</span>
+                        <strong>{growthAnalysis.milScore}%</strong>
+                      </div>
+                      <div className="sector-track">
+                        <div className="sector-fill fill-mil" style={{ width: `${growthAnalysis.milScore}%` }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="player-live-strategy-grid">
