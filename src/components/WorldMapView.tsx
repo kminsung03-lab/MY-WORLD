@@ -686,10 +686,10 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
           <div className="fief-detail-card" style={{ borderColor: isSelectedAnnexed ? '#fbbf24' : selectedNation.borderHighlightColor }}>
             <div className="inspector-header">
               <span className={`inspector-badge ${isSelectedAnnexed ? 'badge-annexed' : ''}`}>
-                {selectedProvince.isPlayerFief ? '★ 내 통치령' : isSelectedAnnexed ? '🚩 에르덴 병합령' : selectedNation.typeLabel}
+                {selectedProvince.isPlayerFief ? '★ 내 통치령 (본령)' : isSelectedAnnexed ? '🚩 에르덴 병합령' : selectedNation.typeLabel}
               </span>
               <span className="nation-tag" style={{ color: isSelectedAnnexed ? '#fbbf24' : selectedNation.borderHighlightColor }}>
-                {isSelectedAnnexed ? '🚩 에르덴 통치령' : `${selectedNation.emblem} ${selectedNation.name}`}
+                {selectedProvince.isPlayerFief ? `왕력 ${realmState.year}년 ${realmState.month}월` : (isSelectedAnnexed ? '🚩 에르덴 통치령' : `${selectedNation.emblem} ${selectedNation.name}`)}
               </span>
             </div>
             <h3 className="fief-title">
@@ -714,11 +714,6 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
             </div>
             {selectedProvince.isPlayerFief ? (
               <div className="player-live-box">
-                <div className="player-live-top-row">
-                  <h4>👑 에르덴 본령 · 살아 있는 영지</h4>
-                  <span className="player-live-date">{realmState.year}년 {realmState.month}월</span>
-                </div>
-
                 {/* Living Realm Growth Card */}
                 <div className="living-realm-summary-card">
                   <div className="living-realm-badge-row">
@@ -761,7 +756,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
                     <p className="milestone-text">{growthAnalysis.recentMilestone}</p>
                   </div>
 
-                  <div className="living-milestone-box target-box">
+                  <div className="living-milestone-box target-box living-next-goal-box">
                     <div className="milestone-label-row">
                       <span className="milestone-tag tag-target">다음 성장 과업 (Next Goal)</span>
                     </div>

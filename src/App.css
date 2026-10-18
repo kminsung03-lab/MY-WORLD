@@ -2042,8 +2042,8 @@ body {
 }
 
 .map-canvas-container {
-  height: min(740px, calc(100vh - 190px));
-  min-height: 590px;
+  height: min(760px, calc(100vh - 155px));
+  min-height: 600px;
   background: #2c557f;
   border: 2px solid #26384f;
   border-radius: 10px;
@@ -2054,8 +2054,8 @@ body {
 .map-inspector-panel {
   box-sizing: border-box;
   width: 100%;
-  max-height: min(740px, calc(100vh - 190px));
-  min-height: 590px;
+  max-height: min(760px, calc(100vh - 155px));
+  min-height: 600px;
   padding-right: 4px;
   overflow-y: auto;
   display: flex;
@@ -2130,8 +2130,8 @@ body {
 .fief-detail-card,
 .nation-detail-card {
   background: linear-gradient(150deg, #0c1525 0%, #090f1b 100%);
-  padding: 15px;
-  gap: 10px;
+  padding: 10px 12px;
+  gap: 6px;
 }
 
 .ruler-line {
@@ -6098,26 +6098,26 @@ body {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
   border: 1px solid rgba(251, 191, 36, 0.35);
   border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .living-realm-badge-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
 
 .living-tier-badge {
   background: #1e293b;
   border: 1px solid #fbbf24;
   color: #fef08a;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -6127,9 +6127,9 @@ body {
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid #38bdf8;
   color: #38bdf8;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -6138,9 +6138,9 @@ body {
   background: rgba(185, 28, 28, 0.25);
   border: 1px solid #ef4444;
   color: #fca5a5;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   white-space: nowrap;
   animation: pulse-border 2s infinite;
@@ -6149,20 +6149,20 @@ body {
 .living-fief-stage-callout {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin: 6px 0 3px;
+  margin: 4px 0 2px;
 }
 
 .living-fief-subheading {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   color: #f8fafc;
   margin: 0;
 }
 
 .living-fief-spec-tag {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
@@ -6174,25 +6174,25 @@ body {
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 4px;
-  padding: 5px 8px;
-  font-size: 11px;
+  padding: 3px 6px;
+  font-size: 10px;
   color: #cbd5e1;
-  margin: 6px 0 8px;
+  margin: 3px 0 5px;
 }
 
 .living-fief-summary-p {
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10.5px;
+  line-height: 1.35;
   color: #cbd5e1;
-  margin: 0 0 8px 0;
+  margin: 0 0 5px 0;
 }
 
 .living-milestone-box {
   background: rgba(15, 23, 42, 0.6);
   border-left: 3px solid #f59e0b;
-  padding: 7px 10px;
+  padding: 4px 8px;
   border-radius: 0 4px 4px 0;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .living-milestone-box.target-box {
@@ -6201,11 +6201,11 @@ body {
 
 .milestone-label-row {
   display: flex;
-  margin-bottom: 3px;
+  margin-bottom: 1px;
 }
 
 .milestone-tag {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -6220,8 +6220,8 @@ body {
 }
 
 .milestone-text {
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.35;
   color: #e2e8f0;
   margin: 0;
 }
@@ -6229,22 +6229,22 @@ body {
 .living-sectors-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 10px;
-  padding-top: 8px;
+  gap: 5px;
+  margin-top: 5px;
+  padding-top: 5px;
   border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .sector-gauge-col {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .sector-gauge-header {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 9.5px;
   color: #94a3b8;
   font-weight: 700;
 }
@@ -6254,7 +6254,7 @@ body {
 }
 
 .sector-track {
-  height: 6px;
+  height: 5px;
   background: rgba(30, 41, 59, 0.9);
   border-radius: 3px;
   overflow: hidden;
@@ -6445,12 +6445,12 @@ body {
 /* Map Panel Mini-Diorama Frame (Synchronized with Map View) */
 .living-fief-diorama-frame {
   width: 100%;
-  height: 120px;
+  height: 80px;
   aspect-ratio: 1000 / 360;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   border: 1px solid rgba(251, 191, 36, 0.45);
-  margin: 8px 0;
+  margin: 4px 0;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   background: #0f172a;
 }

@@ -57,7 +57,7 @@ async function advanceOneMonth(page: Page) {
 /**
  * Capture World Map view of Erden fief and its inspector panel
  */
-async function captureErdenMap(page: Page, savePath: string) {
+async function captureErdenMap(page: Page, savePath: string, assertUnclippedNextGoal: boolean = true) {
   await page.click('button.realm-map-link, button.btn-panorama-map')
   await page.waitForSelector('.world-canvas')
   await page.waitForTimeout(500) // canvas render stabilization
@@ -73,6 +73,30 @@ async function captureErdenMap(page: Page, savePath: string) {
       await legendBtn.click()
       await page.waitForTimeout(400)
     }
+  }
+
+  // Strict Director Acceptance Criteria:
+  // Assert NEXT GOAL card is 100% visible inside the un-scrolled inspector panel viewport
+  if (assertUnclippedNextGoal) {
+    const panelLocator = page.locator('.map-inspector-panel')
+    const nextGoalLocator = page.locator('.living-next-goal-box')
+    await panelLocator.waitFor({ state: 'visible' })
+    await nextGoalLocator.waitFor({ state: 'visible' })
+
+    const panelBox = await panelLocator.boundingBox()
+    const nextGoalBox = await nextGoalLocator.boundingBox()
+    if (!panelBox || !nextGoalBox) {
+      throw new Error('.map-inspector-panel 또는 .living-next-goal-box bounding box를 계산할 수 없습니다.')
+    }
+
+    const panelBottom = panelBox.y + panelBox.height
+    const nextGoalBottom = nextGoalBox.y + nextGoalBox.height
+    console.log(`    [가시성 단언] 패널 바닥: ${panelBottom.toFixed(1)}px, NEXT GOAL 바닥: ${nextGoalBottom.toFixed(1)}px (여유 마진: ${(panelBottom - nextGoalBottom).toFixed(1)}px)`)
+
+    if (nextGoalBottom > panelBottom) {
+      throw new Error(`[결함 단언 실패] NEXT GOAL 카드가 인스펙터 패널 바닥을 초과하여 잘렸습니다! nextGoalBottom(${nextGoalBottom}) > panelBottom(${panelBottom})`)
+    }
+    console.log('    ✓ 스크롤 없이 .living-next-goal-box 카드가 .map-inspector-panel 가시 영역 내 온전히 위치함 단언 통과')
   }
 
   await page.screenshot({ path: savePath })
