@@ -26,6 +26,23 @@ async function advanceOneMonth(page: Page) {
     await page.waitForTimeout(150)
   }
 
+  // If there's an active threat alert, proactively issue counter directive
+  const threatRespondBtn = await page.$('.btn-threat-respond')
+  if (threatRespondBtn) {
+    await threatRespondBtn.click()
+    await page.waitForTimeout(150)
+    const enactBtn = await page.$('.btn-enact-counter:not(:disabled)')
+    if (enactBtn) {
+      await enactBtn.click()
+      await page.waitForTimeout(150)
+    }
+    const overviewTab = await page.$('button.realm-tab-btn:has-text("영지 개요")')
+    if (overviewTab) {
+      await overviewTab.click()
+      await page.waitForTimeout(150)
+    }
+  }
+
   // Click Monthly Turn Advance Button
   const turnBtn = await page.$('.realm-turn-block button')
   if (turnBtn) {
@@ -510,6 +527,15 @@ async function runBrowserVerification() {
       }
       if (!milSpec12m.includes('군사') && !milSpec12m.includes('방벽')) {
         throw new Error('군사 특화가 완성되지 않았습니다.')
+      }
+
+      // Verify that representative military growth is normal and not masked by crisis collapse
+      const distressBadgeEl = await page.$('.p-distress-badge')
+      if (distressBadgeEl) {
+        const text = await distressBadgeEl.innerText()
+        if (text.includes('붕괴') || text.includes('전란')) {
+          throw new Error(`군사 대표 12개월 경로는 정상 성장 증거여야 하며 치안 붕괴가 발생하지 않아야 합니다: ${text}`)
+        }
       }
 
       await page.locator('.living-realm-panorama-container').screenshot({

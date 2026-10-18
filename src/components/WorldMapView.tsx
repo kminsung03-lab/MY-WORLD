@@ -712,17 +712,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
               <strong>{isSelectedAnnexed ? '에르덴 변경백 직속 통치' : selectedProvince.rulerName}</strong>
               <span>주둔 {selectedProvince.troops} {isSelectedAnnexed ? '(에르덴 수비대)' : ''}</span>
             </div>
-            <p className="fief-description">
-              {isSelectedAnnexed && selectedAnnexedInfo
-                ? `${selectedProvince.description} (에르덴 변경백령의 원정으로 ${selectedAnnexedInfo.neighbor.name}에서 병합된 직속 통치령입니다.)`
-                : selectedProvince.description}
-            </p>
-            <div className="fief-ratings">
-              <div className="rating-row"><span>방어</span><div className="rating-bar"><div className="rating-bar-fill def" style={{ width: `${selectedProvince.defense}%` }} /></div><b>{selectedProvince.defense}</b></div>
-              <div className="rating-row"><span>경제</span><div className="rating-bar"><div className="rating-bar-fill eco" style={{ width: `${selectedProvince.economy}%` }} /></div><b>{selectedProvince.economy}</b></div>
-            </div>
-            <div className="specialty-box"><span className="spec-label">주요 산물</span><span className="spec-val">{selectedProvince.specialty}</span></div>
-            {selectedProvince.isPlayerFief && (
+            {selectedProvince.isPlayerFief ? (
               <div className="player-live-box">
                 <div className="player-live-top-row">
                   <h4>👑 에르덴 본령 · 살아 있는 영지</h4>
@@ -750,12 +740,23 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
                     <LivingRealmDioramaSvg analysis={growthAnalysis} className="diorama-mini-svg" viewBox="0 0 1000 360" />
                   </div>
 
-                  <h5 className="living-fief-subheading">{growthAnalysis.tierTitle}</h5>
+                  <div className="living-fief-stage-callout">
+                    <h5 className="living-fief-subheading">{growthAnalysis.tierTitle}</h5>
+                    <span className="living-fief-spec-tag" style={{ color: growthAnalysis.specColor }}>
+                      [{growthAnalysis.tierLabel} · {growthAnalysis.specLabel}]
+                    </span>
+                  </div>
                   <p className="living-fief-summary-p">{growthAnalysis.summaryPhrase}</p>
+
+                  <div className="fief-compact-stats">
+                    <span>🛡️ 방어 {selectedProvince.defense}</span>
+                    <span>🪙 경제 {selectedProvince.economy}</span>
+                    <span>🌾 산물: {selectedProvince.specialty}</span>
+                  </div>
 
                   <div className="living-milestone-box">
                     <div className="milestone-label-row">
-                      <span className="milestone-tag tag-recent">최근 주요 변화의 원인</span>
+                      <span className="milestone-tag tag-recent">최근 주요 변화</span>
                     </div>
                     <p className="milestone-text">{growthAnalysis.recentMilestone}</p>
                   </div>
@@ -866,6 +867,19 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({ realm, onReturnToTow
                   👑 영지 경영으로 복귀
                 </button>
               </div>
+            ) : (
+              <>
+                <p className="fief-description">
+                  {isSelectedAnnexed && selectedAnnexedInfo
+                    ? `${selectedProvince.description} (에르덴 변경백령의 원정으로 ${selectedAnnexedInfo.neighbor.name}에서 병합된 직속 통치령입니다.)`
+                    : selectedProvince.description}
+                </p>
+                <div className="fief-ratings">
+                  <div className="rating-row"><span>방어</span><div className="rating-bar"><div className="rating-bar-fill def" style={{ width: `${selectedProvince.defense}%` }} /></div><b>{selectedProvince.defense}</b></div>
+                  <div className="rating-row"><span>경제</span><div className="rating-bar"><div className="rating-bar-fill eco" style={{ width: `${selectedProvince.economy}%` }} /></div><b>{selectedProvince.economy}</b></div>
+                </div>
+                <div className="specialty-box"><span className="spec-label">주요 산물</span><span className="spec-val">{selectedProvince.specialty}</span></div>
+              </>
             )}
           </div>
 
